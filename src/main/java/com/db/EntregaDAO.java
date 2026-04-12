@@ -10,7 +10,7 @@ import java.util.List;
 
 public class EntregaDAO {
 
-    // ── Registrar entrega ─────────────────────
+ 
     public static void registrar(int alumnoId, int tareaId, String rutaArchivo) {
         String sql = "INSERT INTO entregas (alumno_id, tarea_id, archivo) VALUES (?, ?, ?)";
         try (Connection conn = ConexionDB.getConexion();
@@ -22,7 +22,6 @@ public class EntregaDAO {
         } catch (SQLException e) { e.printStackTrace(); }
     }
 
-    // ── Obtener entregas por tarea ────────────
     public static List<Entrega> obtenerPorTarea(int tareaId) {
         List<Entrega> entregas = new ArrayList<>();
         String sql = """
@@ -51,7 +50,6 @@ public class EntregaDAO {
         return entregas;
     }
 
-    // ── Obtener todas las entregas ────────────
     public static List<Entrega> obtenerTodas() {
         List<Entrega> entregas = new ArrayList<>();
         String sql = """
