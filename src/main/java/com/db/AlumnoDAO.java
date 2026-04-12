@@ -6,9 +6,8 @@ import java.sql.*;
 
 public class AlumnoDAO {
 
-    // ── Registrar o recuperar alumno ──────────
     public static Alumno registrarORecuperar(String nombre, String username) {
-        // Si ya existe retorna el existente
+      
         Alumno existente = buscarPorUsername(username);
         if (existente != null) return existente;
 
@@ -26,7 +25,6 @@ public class AlumnoDAO {
         return null;
     }
 
-    // ── Buscar alumno por username ────────────
     public static Alumno buscarPorUsername(String username) {
         String sql = "SELECT * FROM alumnos WHERE username = ?";
         try (Connection conn = ConexionDB.getConexion();
@@ -40,7 +38,6 @@ public class AlumnoDAO {
         return null;
     }
 
-    // ── Buscar alumno por id ──────────────────
     public static Alumno buscarPorId(int id) {
         String sql = "SELECT * FROM alumnos WHERE id = ?";
         try (Connection conn = ConexionDB.getConexion();
