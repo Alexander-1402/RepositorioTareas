@@ -67,6 +67,18 @@ public class ConexionDB {
             );
         """;
 
+        String sqlRecursos = """
+           CREATE TABLE IF NOT EXISTS recursos (
+           id          INT AUTO_INCREMENT PRIMARY KEY,
+           titulo      VARCHAR(200) NOT NULL,
+           tipo        ENUM('VIDEO', 'ARTICULO', 'REPOSITORIO', 'PDF') NOT NULL,
+           enlace      VARCHAR(500), -- Para URLs externas
+           ruta_archivo VARCHAR(500), -- Para archivos PDF subidos
+           curso_id    INT NOT NULL,
+           FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE
+           );
+        """;
+
         String sqlEntregas = """
             CREATE TABLE IF NOT EXISTS entregas (
                 id          INT AUTO_INCREMENT PRIMARY KEY,

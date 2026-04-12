@@ -1,6 +1,7 @@
 package com.controller;
 
 import com.db.CursoDAO;
+import com.db.RecursoDAO;
 import com.db.TareaDAO;
 import com.model.*;
 
@@ -54,6 +55,8 @@ public class GestorCurso {
             for (Tarea t : tareas) c.agregarTarea(t);
             List<Alumno> alumnos = CursoDAO.obtenerAlumnosDeCurso(c.getId());
             for (Alumno a : alumnos) c.agregarAlumno(a);
+            List<Recurso> recursos = RecursoDAO.obtenerPorCurso(c.getId());
+            for(Recurso r : recursos) c.agregarRecurso(r);
         }
         return cursos;
     }
