@@ -8,7 +8,6 @@ import java.util.List;
 
 public class TareaDAO {
 
-    // ── Crear tarea ───────────────────────────
     public static Tarea crear(String titulo, Tarea.Dificultad dificultad, int cursoId) {
         String sql = "INSERT INTO tareas (titulo, dificultad, curso_id) VALUES (?, ?, ?)";
         try (Connection conn = ConexionDB.getConexion();
@@ -29,7 +28,6 @@ public class TareaDAO {
         return null;
     }
 
-    // ── Listar tareas de un curso ─────────────
     public static List<Tarea> listarPorCurso(int cursoId) {
         List<Tarea> tareas = new ArrayList<>();
         String sql = "SELECT * FROM tareas WHERE curso_id = ? ORDER BY FIELD(dificultad,'FACIL','MEDIO','DIFICIL')";
@@ -48,7 +46,6 @@ public class TareaDAO {
         return tareas;
     }
 
-    // ── Listar todas las tareas ───────────────
     public static List<Tarea> listarTodas() {
         List<Tarea> tareas = new ArrayList<>();
         String sql = "SELECT * FROM tareas ORDER BY FIELD(dificultad,'FACIL','MEDIO','DIFICIL')";
@@ -66,7 +63,6 @@ public class TareaDAO {
         return tareas;
     }
 
-    // ── Buscar tarea por id ───────────────────
     public static Tarea buscarPorId(int id) {
         String sql = "SELECT * FROM tareas WHERE id = ?";
         try (Connection conn = ConexionDB.getConexion();
