@@ -9,7 +9,6 @@ import java.util.List;
 
 public class CursoDAO {
 
-    // ── Crear curso ───────────────────────────
     public static Curso crear(String nombre, String codigo) {
         String sql = "INSERT INTO cursos (nombre, codigo) VALUES (?, ?)";
         try (Connection conn = ConexionDB.getConexion();
@@ -24,8 +23,7 @@ public class CursoDAO {
         } catch (SQLException e) { e.printStackTrace(); }
         return null;
     }
-
-    // ── Listar todos los cursos ───────────────
+   
     public static List<Curso> listar() {
         List<Curso> cursos = new ArrayList<>();
         String sql = "SELECT * FROM cursos";
@@ -41,7 +39,6 @@ public class CursoDAO {
         return cursos;
     }
 
-    // ── Buscar curso por código ───────────────
     public static Curso buscarPorCodigo(String codigo) {
         String sql = "SELECT * FROM cursos WHERE codigo = ?";
         try (Connection conn = ConexionDB.getConexion();
@@ -57,7 +54,6 @@ public class CursoDAO {
         return null;
     }
 
-    // ── Inscribir alumno en curso ─────────────
     public static void inscribirAlumno(int alumnoId, int cursoId) {
         String sql = "INSERT IGNORE INTO alumno_curso (alumno_id, curso_id) VALUES (?, ?)";
         try (Connection conn = ConexionDB.getConexion();
@@ -68,7 +64,6 @@ public class CursoDAO {
         } catch (SQLException e) { e.printStackTrace(); }
     }
 
-    // ── Obtener cursos de un alumno ───────────
     public static List<Curso> obtenerCursosDeAlumno(int alumnoId) {
         List<Curso> cursos = new ArrayList<>();
         String sql = """
@@ -89,7 +84,6 @@ public class CursoDAO {
         return cursos;
     }
 
-    // ── Expulsar alumno de curso ──────────────
     public static void expulsarAlumno(int alumnoId, int cursoId) {
         String sql = "DELETE FROM alumno_curso WHERE alumno_id = ? AND curso_id = ?";
         try (Connection conn = ConexionDB.getConexion();
@@ -100,7 +94,6 @@ public class CursoDAO {
         } catch (SQLException e) { e.printStackTrace(); }
     }
 
-    // ── Obtener alumnos de un curso ───────────
     public static List<Alumno> obtenerAlumnosDeCurso(int cursoId) {
         List<Alumno> alumnos = new ArrayList<>();
         String sql = """
