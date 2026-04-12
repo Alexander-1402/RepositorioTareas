@@ -79,12 +79,26 @@ public class ConexionDB {
             );
         """;
 
+        String sqlMensajes = """
+            CREATE TABLE IF NOT EXISTS mensajes (
+                id         INT AUTO_INCREMENT PRIMARY KEY,
+                alumno_id  INT NOT NULL,
+                curso_id   INT NOT NULL,
+                contenido  TEXT NOT NULL,
+                fecha      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                leido      BOOLEAN DEFAULT FALSE,
+                FOREIGN KEY (alumno_id) REFERENCES alumnos(id) ON DELETE CASCADE,
+                FOREIGN KEY (curso_id)  REFERENCES cursos(id)  ON DELETE CASCADE
+            );
+        """;
+
         try (Connection conn = getConexion(); Statement stmt = conn.createStatement()) {
             stmt.execute(sqlCursos);
             stmt.execute(sqlTareas);
             stmt.execute(sqlAlumnos);
             stmt.execute(sqlAlumnoCurso);
             stmt.execute(sqlEntregas);
+            stmt.execute(sqlMensajes);
             System.out.println("✓ Tablas verificadas/creadas correctamente");
         } catch (SQLException e) {
             System.err.println("✗ Error al inicializar tablas: " + e.getMessage());
