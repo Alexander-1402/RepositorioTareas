@@ -12,7 +12,7 @@ public class GestorIA {
     // Tu API key de Groq
     private static final String API_KEY = System.getenv("GROQ_API_KEY");
     private static final String URL     = "https://api.groq.com/openai/v1/chat/completions";
-    private static final String MODELO  = "llama3-8b-8192";
+    private static final String MODELO = "llama-3.3-70b-versatile";
 
     /**
      * Recibe el título de una tarea y retorna su dificultad
@@ -27,7 +27,7 @@ public class GestorIA {
                     "messages": [
                         {
                             "role": "system",
-                            "content": "Eres un clasificador de tareas académicas. Responde ÚNICAMENTE con una sola palabra: FACIL, MEDIO o DIFICIL según la complejidad de la tarea. No expliques nada, solo responde con la palabra."
+                            "content": "Eres un clasificador de tareas académicas universitarias. Responde ÚNICAMENTE con una sola palabra: FACIL, MEDIO o DIFICIL. Usa estos criterios: FACIL si es una lectura simple, resumen corto, cuestionario básico o menos de 20 ejercicios. MEDIO si es un análisis, práctica con varios pasos, entre 20 y 100 ejercicios, o un proyecto pequeño. DIFICIL si es un proyecto final, examen, investigación extensa, más de 100 ejercicios, o una tarea que requiere múltiples sesiones de trabajo. No expliques nada, solo responde con la palabra."
                         },
                         {
                             "role": "user",
