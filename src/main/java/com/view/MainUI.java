@@ -1,5 +1,7 @@
 package com.view;
+
 import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -17,7 +19,7 @@ import java.util.List;
 
 public class MainUI {
 
-    private String rolActual  = null;
+    private String rolActual   = null;
     private String vistaActual = "inicio";
 
     public MainUI(Stage stage, RepositorioController repo) {
@@ -31,14 +33,46 @@ public class MainUI {
     private Scene buildScene(Stage stage, RepositorioController repo) {
         VBox sidebar  = buildSidebar(stage, repo);
         HBox topbar   = buildTopbar(stage, repo);
-        VBox contenido = buildContenido(stage, repo);
 
-        ScrollPane scroll = new ScrollPane(contenido);
-        scroll.setFitToWidth(true);
-        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        // Contenedor principal que empieza con spinner
+        StackPane contenedorPrincipal = new StackPane();
+        contenedorPrincipal.setStyle("-fx-background-color: #111111;");
 
-        VBox mainArea = new VBox(topbar, scroll);
-        VBox.setVgrow(scroll, Priority.ALWAYS);
+        // Mostrar spinner mientras carga
+        VBox spinner = buildSpinner();
+        contenedorPrincipal.getChildren().add(spinner);
+
+        // Cargar contenido en hilo secundario
+        Task<VBox> tarea = new Task<>() {
+            @Override
+            protected VBox call() {
+                // Esto corre en segundo plano — consultas a BD aquí
+                return buildContenido(stage, repo);
+            }
+        };
+
+        // Cuando termina, actualizar UI en hilo principal
+        tarea.setOnSucceeded(e -> {
+            VBox contenido = tarea.getValue();
+            ScrollPane scroll = new ScrollPane(contenido);
+            scroll.setFitToWidth(true);
+            scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+            contenedorPrincipal.getChildren().clear();
+            contenedorPrincipal.getChildren().add(scroll);
+        });
+
+        tarea.setOnFailed(e -> {
+            Label error = new Label("Error al cargar datos");
+            error.setStyle("-fx-text-fill: #f87171;");
+            contenedorPrincipal.getChildren().clear();
+            contenedorPrincipal.getChildren().add(error);
+        });
+
+        // Arrancar el hilo secundario
+        new Thread(tarea).start();
+
+        VBox mainArea = new VBox(topbar, contenedorPrincipal);
+        VBox.setVgrow(contenedorPrincipal, Priority.ALWAYS);
         mainArea.setStyle("-fx-background-color: #111111;");
 
         HBox root = new HBox(sidebar, mainArea);
@@ -47,6 +81,22 @@ public class MainUI {
         Scene scene = new Scene(root);
         scene.getStylesheets().add(getClass().getResource("/style/style.css").toExternalForm());
         return scene;
+    }
+
+    // ── SPINNER DE CARGA ───────────────────────────────────────────────────────
+    private VBox buildSpinner() {
+        Label cargando = new Label("Cargando...");
+        cargando.setStyle("-fx-text-fill: #555555; -fx-font-size: 13px;");
+
+        // Círculo animado simple
+        ProgressIndicator pi = new ProgressIndicator();
+        pi.setStyle("-fx-progress-color: #666666;");
+        pi.setPrefSize(36, 36);
+
+        VBox box = new VBox(12, pi, cargando);
+        box.setAlignment(Pos.CENTER);
+        box.setStyle("-fx-background-color: #111111;");
+        return box;
     }
 
     // ── SIDEBAR ────────────────────────────────────────────────────────────────
@@ -92,7 +142,7 @@ public class MainUI {
                 Button btnUnirse    = navBtn("＋  Unirse a Clase", false);
                 btnMisTareas.setOnAction(e -> { vistaActual = "misTareas"; refresh(stage, repo); });
                 btnEntregar.setOnAction(e  -> { vistaActual = "entregar";  refresh(stage, repo); });
-                btnUnirse.setOnAction(e    -> accionUnirse(repo, stage));
+                btnUnirse.setOnAction(e    -> { accionUnirse(repo, stage); });
                 secRol.getChildren().addAll(btnMisTareas, btnEntregar, btnUnirse);
             }
         } else {
@@ -154,7 +204,7 @@ public class MainUI {
         return topbar;
     }
 
-    // ── CONTENIDO ──────────────────────────────────────────────────────────────
+    // ── CONTENIDO — corre en hilo secundario ───────────────────────────────────
     private VBox buildContenido(Stage stage, RepositorioController repo) {
         return switch (vistaActual) {
             case "verCursos"    -> buildVerCursos(repo);
@@ -174,10 +224,10 @@ public class MainUI {
         Label sub = new Label("¿Qué deseas hacer hoy?");
         sub.setStyle("-fx-text-fill: #555555; -fx-font-size: 13px;");
 
-        VBox cardDocente    = accionCard("📋", "Asignar Tarea",  "Crea cursos y gestiona\nlas tareas del grupo",   "DOCENTE");
+        VBox cardDocente    = accionCard("📋", "Asignar Tarea",  "Crea cursos y gestiona\nlas tareas del grupo",  "DOCENTE");
         VBox cardEstudiante = accionCard("📤", "Entregar Tarea", "Únete a un curso y\nentrega tus trabajos", "ESTUDIANTE");
 
-        cardDocente.setOnMouseClicked(e -> { rolActual = "DOCENTE";    vistaActual = "crearCurso"; refresh(stage, repo); });
+        cardDocente.setOnMouseClicked(e    -> { rolActual = "DOCENTE";    vistaActual = "crearCurso"; refresh(stage, repo); });
         cardEstudiante.setOnMouseClicked(e -> { rolActual = "ESTUDIANTE"; vistaActual = "misTareas";  refresh(stage, repo); });
 
         HBox cards = new HBox(20, cardDocente, cardEstudiante);
@@ -187,7 +237,6 @@ public class MainUI {
         center.setAlignment(Pos.CENTER);
         center.setPadding(new Insets(60, 20, 20, 20));
         center.setStyle("-fx-background-color: #111111;");
-        VBox.setVgrow(center, Priority.ALWAYS);
         return center;
     }
 
@@ -276,7 +325,7 @@ public class MainUI {
         return wrap;
     }
 
-    // ── ASIGNAR TAREA (IA clasifica automáticamente) ───────────────────────────
+    // ── ASIGNAR TAREA ──────────────────────────────────────────────────────────
     private VBox buildAsignarTarea(Stage stage, RepositorioController repo) {
         Label lC = fieldLbl("Curso");
         ComboBox<Curso> cursosBox = new ComboBox<>();
@@ -289,12 +338,10 @@ public class MainUI {
         titulo.setPromptText("Ej: Proyecto final de algoritmos");
         titulo.setMaxWidth(Double.MAX_VALUE);
 
-        // Info de que la IA clasifica sola
         Label infoIA = new Label("🤖 La dificultad será asignada automáticamente por IA");
         infoIA.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px; -fx-padding: 4 0;");
 
         Label msg = new Label();
-
         Button crearBtn = new Button("Asignar Tarea →");
         crearBtn.setMaxWidth(Double.MAX_VALUE);
         crearBtn.setPrefHeight(42);
@@ -302,22 +349,15 @@ public class MainUI {
             Curso c = cursosBox.getValue();
             if (c == null || titulo.getText().isBlank()) {
                 msg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;");
-                msg.setText("⚠ Completa todos los campos");
-                return;
+                msg.setText("⚠ Completa todos los campos"); return;
             }
-
-            // Mostrar que está procesando
             msg.setStyle("-fx-text-fill: #fbbf24; -fx-font-size: 12px;");
             msg.setText("⏳ Clasificando con IA...");
             crearBtn.setDisable(true);
-
             String tituloTarea = titulo.getText();
-
-            // Llamar a GestorIA en hilo separado para no bloquear la UI
             new Thread(() -> {
                 Tarea.Dificultad dif = GestorIA.clasificar(tituloTarea);
                 repo.tareasController.crearTarea(null, c, tituloTarea, null, dif);
-
                 Platform.runLater(() -> {
                     String emoji = switch (dif) {
                         case FACIL   -> "🟢";
@@ -452,7 +492,6 @@ public class MainUI {
         long medio   = tareas.stream().filter(t -> t.getDificultad() == Tarea.Dificultad.MEDIO).count();
         long dificil = tareas.stream().filter(t -> t.getDificultad() == Tarea.Dificultad.DIFICIL).count();
 
-        // Stats
         HBox stats = new HBox(12,
                 statCard("Total",   String.valueOf(tareas.size()), "#a0a0a0"),
                 statCard("Fácil",   String.valueOf(facil),         "#4ade80"),
@@ -461,16 +500,11 @@ public class MainUI {
         );
         stats.setPadding(new Insets(20, 20, 8, 20));
 
-        // Recomendación de la IA
         Label recomendacion = new Label();
         if (!tareas.isEmpty()) {
-            if (facil > 0) {
-                recomendacion.setText("💡 Te recomendamos empezar por las tareas marcadas como Fácil");
-            } else if (medio > 0) {
-                recomendacion.setText("💡 Te recomendamos empezar por las tareas de dificultad Media");
-            } else {
-                recomendacion.setText("💪 Solo tienes tareas difíciles — ¡ánimo, empieza cuanto antes!");
-            }
+            if (facil > 0) recomendacion.setText("💡 Te recomendamos empezar por las tareas marcadas como Fácil");
+            else if (medio > 0) recomendacion.setText("💡 Te recomendamos empezar por las tareas de dificultad Media");
+            else recomendacion.setText("💪 Solo tienes tareas difíciles — ¡ánimo, empieza cuanto antes!");
         } else {
             recomendacion.setText("No tienes tareas aún. Únete a una clase primero.");
         }
@@ -480,7 +514,6 @@ public class MainUI {
         VBox recBox = new VBox(recomendacion);
         recBox.setPadding(new Insets(0, 20, 8, 20));
 
-        // Lista de tareas
         VBox lista = new VBox(8);
         lista.setPadding(new Insets(4, 20, 20, 20));
 
@@ -614,12 +647,10 @@ public class MainUI {
     }
 
     private VBox accionCard(String emoji, String titulo, String desc, String rol) {
-        Label icon     = new Label(emoji); icon.setStyle("-fx-font-size: 28px;");
+        Label icon      = new Label(emoji); icon.setStyle("-fx-font-size: 28px;");
         Label tituloLbl = new Label(titulo); tituloLbl.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 14px; -fx-font-weight: bold;");
         Label descLbl   = new Label(desc);   descLbl.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px; -fx-text-alignment: center;"); descLbl.setAlignment(Pos.CENTER); descLbl.setWrapText(true);
-        String tagStyle = rol.equals("DOCENTE")
-                ? "-fx-background-color: rgba(100,100,220,0.12); -fx-text-fill: #7777cc;"
-                : "-fx-background-color: rgba(80,180,80,0.12);   -fx-text-fill: #55aa55;";
+        String tagStyle = rol.equals("DOCENTE") ? "-fx-background-color: rgba(100,100,220,0.12); -fx-text-fill: #7777cc;" : "-fx-background-color: rgba(80,180,80,0.12); -fx-text-fill: #55aa55;";
         Label tag = new Label(rol.equals("DOCENTE") ? "Docente" : "Estudiante");
         tag.setStyle(tagStyle + " -fx-font-size: 10px; -fx-padding: 2 10 2 10; -fx-background-radius: 20;");
         VBox card = new VBox(10, icon, tituloLbl, descLbl, tag);
