@@ -18,8 +18,7 @@ public class GestorCurso {
 
     public Curso crearCurso(String nombre, Profesor profesor) {
         String codigo = "C" + contadorCodigo++;
-        Curso c = CursoDAO.crear(nombre, codigo);
-        return c;
+        return CursoDAO.crear(nombre, codigo);
     }
 
     public void unirseClase(Alumno alumno, String codigo) {
@@ -47,14 +46,9 @@ public class GestorCurso {
         }
     }
 
+    // ── Antes: N+1 consultas por cada curso ──
+    // ── Ahora: solo 2 consultas con JOIN ─────
     public List<Curso> listarCursos() {
-        List<Curso> cursos = CursoDAO.listar();
-        for (Curso c : cursos) {
-            List<Tarea> tareas = TareaDAO.listarPorCurso(c.getId());
-            for (Tarea t : tareas) c.agregarTarea(t);
-            List<Alumno> alumnos = CursoDAO.obtenerAlumnosDeCurso(c.getId());
-            for (Alumno a : alumnos) c.agregarAlumno(a);
-        }
-        return cursos;
+        return CursoDAO.listarConTareasYAlumnos();
     }
 }
