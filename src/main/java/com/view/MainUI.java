@@ -91,11 +91,13 @@ public class MainUI {
                 Button btnAsignar    = navBtn("📋  Asignar Tarea",      vistaActual.equals("asignarTarea"));
                 Button btnEntregas   = navBtn("↓  Ver Entregas",        vistaActual.equals("verEntregas"));
                 Button btnAlumnos    = navBtn("◎  Gestionar Alumnos",   vistaActual.equals("alumnos"));
+                Button btnVincular   = navBtn("🔗  Vincular Recurso",    vistaActual.equals("vincularRecurso"));
                 btnCrearCurso.setOnAction(e -> { vistaActual = "crearCurso";  refresh(stage, repo); });
                 btnAsignar.setOnAction(e    -> { vistaActual = "asignarTarea"; refresh(stage, repo); });
                 btnEntregas.setOnAction(e   -> { vistaActual = "verEntregas"; refresh(stage, repo); });
                 btnAlumnos.setOnAction(e    -> { vistaActual = "alumnos";     refresh(stage, repo); });
-                secRol.getChildren().addAll(btnCrearCurso, btnAsignar, btnEntregas, btnAlumnos);
+                btnVincular.setOnAction(e   -> { vistaActual = "vincularRecurso"; refresh(stage, repo); });
+                secRol.getChildren().addAll(btnCrearCurso, btnAsignar, btnEntregas, btnAlumnos, btnVincular);
             } else {
                 Button btnMisTareas = navBtn("✦  Mis Tareas",      vistaActual.equals("misTareas"));
                 Button btnEntregar  = navBtn("↑  Entregar Tarea",  vistaActual.equals("entregar"));
@@ -179,6 +181,7 @@ public class MainUI {
             case "alumnos"      -> buildAlumnos(stage, repo);
             case "misTareas"    -> buildMisTareas(repo);
             case "entregar"     -> buildEntregar(stage, repo);
+            case "vincularRecurso" -> buildVincularRecurso(repo, stage);
             default             -> buildInicio(stage, repo);
         };
     }
@@ -556,6 +559,94 @@ public class MainUI {
         });
 
         VBox card = new VBox(12, lNombre, nombreField, lC, codigoField, buscarBtn, msgBuscar, lT, tareasBox, lA, selBtn, archivoLabel, msg, subirBtn);
+        card.setPadding(new Insets(20));
+        card.setMaxWidth(420);
+        card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
+
+        VBox wrap = new VBox(card);
+        wrap.setPadding(new Insets(20));
+        wrap.setStyle("-fx-background-color: #111111;");
+        return wrap;
+    }
+
+    // ── VINCULAR RECURSO (docente) ────────────────────────────────────────────
+    private VBox buildVincularRecurso(RepositorioController repo, Stage stage) {
+        Label info = new Label("Vincula material de apoyo (Videos, PDFs o Enlaces) a tus cursos.");
+        info.setStyle("-fx-text-fill: #555555; -fx-font-size: 12px;");
+
+        Label lC = fieldLbl("Curso");
+        ComboBox<Curso> cursosBox = new ComboBox<>();
+        cursosBox.getItems().addAll(repo.gestorCurso.listarCursos());
+        cursosBox.setPromptText("Selecciona un curso");
+        cursosBox.setMaxWidth(Double.MAX_VALUE);
+
+        Label lT = fieldLbl("Título del recurso");
+        TextField tituloField = new TextField();
+        tituloField.setPromptText("Ej: Guía de estudio PDF");
+        tituloField.setMaxWidth(Double.MAX_VALUE);
+
+        Label lTipo = fieldLbl("Tipo de recurso");
+        ComboBox<Recurso.TipoRecurso> tipoBox = new ComboBox<>();
+        tipoBox.getItems().addAll(Recurso.TipoRecurso.values());
+        tipoBox.setPromptText("Selecciona el tipo");
+        tipoBox.setMaxWidth(Double.MAX_VALUE);
+
+        Label lUrl = fieldLbl("Enlace / URL");
+        TextField urlField = new TextField();
+        urlField.setPromptText("https://...");
+        urlField.setMaxWidth(Double.MAX_VALUE);
+
+        Label lPdf = fieldLbl("Archivo");
+        Button selBtn = new Button("Seleccionar PDF...");
+        selBtn.setMaxWidth(Double.MAX_VALUE);
+        selBtn.getStyleClass().add("button-ghost");
+        Label archivoLabel = new Label("Ningún archivo seleccionado");
+        archivoLabel.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px;");
+        final java.io.File[] archivoSel = new java.io.File[1];
+
+        tipoBox.setOnAction(e -> {
+            boolean esPdf = (tipoBox.getValue() == Recurso.TipoRecurso.PDF);
+            lUrl.setVisible(!esPdf); urlField.setVisible(!esPdf);
+            lPdf.setVisible(esPdf); selBtn.setVisible(esPdf); archivoLabel.setVisible(esPdf);
+        });
+
+        selBtn.setOnAction(e -> {
+            javafx.stage.FileChooser fc = new javafx.stage.FileChooser();
+            fc.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("Archivos PDF", "*.pdf"));
+            java.io.File f = fc.showOpenDialog(stage);
+            if (f != null) {
+                archivoSel[0] = f;
+                archivoLabel.setText("✓ " + f.getName());
+                archivoLabel.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;");
+            }
+        });
+
+        Label msg = new Label();
+        Button vincularBtn = new Button("Vincular Recurso →");
+        vincularBtn.setMaxWidth(Double.MAX_VALUE);
+        vincularBtn.setPrefHeight(42);
+
+        vincularBtn.setOnAction(e -> {
+            Curso c = cursosBox.getValue();
+            String tit = tituloField.getText().trim();
+            Recurso.TipoRecurso tipo = tipoBox.getValue();
+            if (c == null || tit.isEmpty() || tipo == null) {
+                msg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;");
+                msg.setText("⚠ Completa todos los campos"); return;
+            }
+            if (tipo == Recurso.TipoRecurso.PDF) {
+                if (archivoSel[0] == null) { msg.setText("⚠ Selecciona un PDF"); return; }
+                repo.recursosController.vincularArchivo(c, tit, archivoSel[0]);
+            } else {
+                if (urlField.getText().isBlank()) { msg.setText("⚠ Ingresa la URL"); return; }
+                repo.recursosController.vincularEnlace(c, tit, tipo, urlField.getText().trim());
+            }
+            msg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;");
+            msg.setText("✓ Recurso vinculado correctamente");
+            tituloField.clear(); urlField.clear();
+        });
+
+        VBox card = new VBox(12, info, lC, cursosBox, lT, tituloField, lTipo, tipoBox, lUrl, urlField, lPdf, selBtn, archivoLabel, msg, vincularBtn);
         card.setPadding(new Insets(20));
         card.setMaxWidth(420);
         card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
