@@ -17,7 +17,7 @@ public class GestorMensajes {
         boolean inscrito = cursosDelAlumno.stream().anyMatch(c -> c.getId() == cursoId);
 
         if (!inscrito) {
-            System.err.println("El alumno no está inscrito en este curso.");
+            System.err.println("El alumno no está inscrito en este curso.");//
             return null;
         }
         if (contenido == null || contenido.isBlank()) {
