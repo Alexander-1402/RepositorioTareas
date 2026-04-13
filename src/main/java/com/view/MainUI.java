@@ -207,7 +207,7 @@ public class MainUI {
     // ── CONTENIDO — corre en hilo secundario ───────────────────────────────────
     private VBox buildContenido(Stage stage, RepositorioController repo) {
         return switch (vistaActual) {
-            case "verCursos"    -> buildVerCursos(repo);
+            case "verCursos"    -> buildVerCursos(stage, repo);
             case "verTareas"    -> buildVerTareas(repo);
             case "crearCurso"   -> buildCrearCurso(stage, repo);
             case "asignarTarea" -> buildAsignarTarea(stage, repo);
@@ -241,30 +241,101 @@ public class MainUI {
     }
 
     // ── VER CURSOS ─────────────────────────────────────────────────────────────
-    private VBox buildVerCursos(RepositorioController repo) {
+    private VBox buildVerCursos(Stage stage, RepositorioController repo) {
         VBox lista = new VBox(10);
         lista.setPadding(new Insets(20));
+
         List<Curso> cursos = repo.gestorCurso.listarCursos();
+
         if (cursos.isEmpty()) {
             lista.getChildren().add(emptyLabel("No hay cursos creados aún."));
         } else {
             for (Curso c : cursos) {
                 Label nombre = new Label(c.getNombre());
                 nombre.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 13px; -fx-font-weight: bold;");
-                Label meta = new Label("Código: " + c.getCodigo() + "  ·  " + c.getAlumnos().size() + " alumnos  ·  " + c.getTareas().size() + " tareas");
+
+                Label meta = new Label(
+                        "Código: " + c.getCodigo() +
+                                "  ·  " + c.getAlumnos().size() +
+                                " alumnos  ·  " + c.getTareas().size() + " tareas"
+                );
                 meta.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px;");
+
                 Label badge = new Label(c.getCodigo());
                 badge.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #777777; -fx-font-size: 10px; -fx-padding: 3 10 3 10; -fx-background-radius: 20;");
-                Region sp = new Region(); HBox.setHgrow(sp, Priority.ALWAYS);
-                HBox card = new HBox(12, new VBox(3, nombre, meta), sp, badge);
+
+                Region sp = new Region();
+                HBox.setHgrow(sp, Priority.ALWAYS);
+
+                VBox infoBox = new VBox(3, nombre, meta);
+
+                HBox card = new HBox(12, infoBox, sp, badge);
                 card.setAlignment(Pos.CENTER_LEFT);
                 card.setPadding(new Insets(13, 16, 13, 16));
-                card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10;");
+                card.setStyle(
+                        "-fx-background-color: #1e1e1e; " +
+                                "-fx-border-color: #2a2a2a; " +
+                                "-fx-border-width: 1px; " +
+                                "-fx-border-radius: 10; " +
+                                "-fx-background-radius: 10; " +
+                                "-fx-cursor: hand;"
+                );
+
+                // Hover
+                card.setOnMouseEntered(e -> card.setStyle(
+                        "-fx-background-color: #252525; " +
+                                "-fx-border-color: #444444; " +
+                                "-fx-border-width: 1px; " +
+                                "-fx-border-radius: 10; " +
+                                "-fx-background-radius: 10; " +
+                                "-fx-cursor: hand;"
+                ));
+
+                card.setOnMouseExited(e -> card.setStyle(
+                        "-fx-background-color: #1e1e1e; " +
+                                "-fx-border-color: #2a2a2a; " +
+                                "-fx-border-width: 1px; " +
+                                "-fx-border-radius: 10; " +
+                                "-fx-background-radius: 10; " +
+                                "-fx-cursor: hand;"
+                ));
+
+                // Click para pedir código de acceso
+                card.setOnMouseClicked(e -> pedirCodigoAcceso(stage, c));
+
                 lista.getChildren().add(card);
             }
         }
+
         lista.setStyle("-fx-background-color: #111111;");
         return lista;
+    }
+    private void pedirCodigoAcceso(Stage stage, Curso curso) {
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.setTitle("Acceso al curso");
+        dialog.setHeaderText("Ingrese el código de acceso para entrar a " + curso.getNombre());
+        dialog.setContentText("Código:");
+
+        dialog.showAndWait().ifPresent(codigoIngresado -> {
+            if (codigoIngresado.equalsIgnoreCase(curso.getCodigo())) {
+                Alert ok = new Alert(Alert.AlertType.INFORMATION);
+                ok.setTitle("Acceso permitido");
+                ok.setHeaderText(null);
+                ok.setContentText("Ingresaste correctamente al curso: " + curso.getNombre());
+                ok.showAndWait();
+
+                // Aquí luego puedes redirigir a una vista del curso
+                // Ejemplo:
+                // vistaActual = "detalleCurso";
+                // refresh(stage, repo);
+            } else {
+                Alert error = new Alert(Alert.AlertType.ERROR);
+                error.setTitle("Código incorrecto");
+                error.setHeaderText(null);
+                error.setContentText("El código de acceso no es correcto.");
+                error.showAndWait();
+            }
+        });
     }
 
     // ── VER TAREAS ─────────────────────────────────────────────────────────────
