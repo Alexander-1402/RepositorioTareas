@@ -75,4 +75,22 @@ public class EntregaDAO {
         } catch (SQLException e) { e.printStackTrace(); }
         return entregas;
     }
+    public static void actualizarNota(int idEntrega, int nota, String comentario) {
+    String sql = "UPDATE entregas SET nota = ?, comentario = ? WHERE id = ?";
+
+    try (Connection conn = ConexionDB.getConexion();
+         PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        ps.setInt(1, nota);
+        ps.setString(2, comentario);
+        ps.setInt(3, idEntrega);
+
+        ps.executeUpdate();
+
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+}
+
+     
 }
