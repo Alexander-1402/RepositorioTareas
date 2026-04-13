@@ -12,11 +12,19 @@ public class Tarea {
     private File archivo;
     private Dificultad dificultad;
 
+    private static int contador = 1;
+
     public Tarea(String titulo, File archivo) {
-        this.titulo    = titulo;
-        this.archivo   = archivo;
-        this.dificultad = Dificultad.MEDIO;
-    }
+    this.id = contador++; 
+    this.titulo = titulo;
+    this.archivo = archivo;
+    this.dificultad = Dificultad.MEDIO;
+}
+    private String descripcion;
+
+public String getDescripcion() { return descripcion; }
+public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
+
 
     public int getId()                          { return id; }
     public void setId(int id)                   { this.id = id; }
