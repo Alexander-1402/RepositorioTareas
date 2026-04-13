@@ -1,7 +1,5 @@
 package com.view;
 
-import javafx.application.Platform;
-import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -11,7 +9,6 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.stage.Stage;
 
-import com.controller.GestorIA;
 import com.controller.RepositorioController;
 import com.model.*;
 
@@ -19,7 +16,8 @@ import java.util.List;
 
 public class MainUI {
 
-    private String rolActual   = null;
+    // rol: null = sin seleccionar, "DOCENTE", "ESTUDIANTE"
+    private String rolActual = null;
     private String vistaActual = "inicio";
 
     public MainUI(Stage stage, RepositorioController repo) {
@@ -31,48 +29,22 @@ public class MainUI {
     }
 
     private Scene buildScene(Stage stage, RepositorioController repo) {
-        VBox sidebar  = buildSidebar(stage, repo);
-        HBox topbar   = buildTopbar(stage, repo);
 
-        // Contenedor principal que empieza con spinner
-        StackPane contenedorPrincipal = new StackPane();
-        contenedorPrincipal.setStyle("-fx-background-color: #111111;");
+        // ══ SIDEBAR ═══════════════════════════════
+        VBox sidebar = buildSidebar(stage, repo);
 
-        // Mostrar spinner mientras carga
-        VBox spinner = buildSpinner();
-        contenedorPrincipal.getChildren().add(spinner);
+        // ══ TOPBAR ════════════════════════════════
+        HBox topbar = buildTopbar(stage, repo);
 
-        // Cargar contenido en hilo secundario
-        Task<VBox> tarea = new Task<>() {
-            @Override
-            protected VBox call() {
-                // Esto corre en segundo plano — consultas a BD aquí
-                return buildContenido(stage, repo);
-            }
-        };
+        // ══ CONTENIDO ═════════════════════════════
+        VBox contenido = buildContenido(stage, repo);
 
-        // Cuando termina, actualizar UI en hilo principal
-        tarea.setOnSucceeded(e -> {
-            VBox contenido = tarea.getValue();
-            ScrollPane scroll = new ScrollPane(contenido);
-            scroll.setFitToWidth(true);
-            scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
-            contenedorPrincipal.getChildren().clear();
-            contenedorPrincipal.getChildren().add(scroll);
-        });
+        ScrollPane scroll = new ScrollPane(contenido);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
-        tarea.setOnFailed(e -> {
-            Label error = new Label("Error al cargar datos");
-            error.setStyle("-fx-text-fill: #f87171;");
-            contenedorPrincipal.getChildren().clear();
-            contenedorPrincipal.getChildren().add(error);
-        });
-
-        // Arrancar el hilo secundario
-        new Thread(tarea).start();
-
-        VBox mainArea = new VBox(topbar, contenedorPrincipal);
-        VBox.setVgrow(contenedorPrincipal, Priority.ALWAYS);
+        VBox mainArea = new VBox(topbar, scroll);
+        VBox.setVgrow(scroll, Priority.ALWAYS);
         mainArea.setStyle("-fx-background-color: #111111;");
 
         HBox root = new HBox(sidebar, mainArea);
@@ -83,24 +55,10 @@ public class MainUI {
         return scene;
     }
 
-    // ── SPINNER DE CARGA ───────────────────────────────────────────────────────
-    private VBox buildSpinner() {
-        Label cargando = new Label("Cargando...");
-        cargando.setStyle("-fx-text-fill: #555555; -fx-font-size: 13px;");
-
-        // Círculo animado simple
-        ProgressIndicator pi = new ProgressIndicator();
-        pi.setStyle("-fx-progress-color: #666666;");
-        pi.setPrefSize(36, 36);
-
-        VBox box = new VBox(12, pi, cargando);
-        box.setAlignment(Pos.CENTER);
-        box.setStyle("-fx-background-color: #111111;");
-        return box;
-    }
-
     // ── SIDEBAR ────────────────────────────────────────────────────────────────
     private VBox buildSidebar(Stage stage, RepositorioController repo) {
+
+        // Logo
         Label logoTitle = new Label("TaskRepo");
         logoTitle.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 15px; -fx-font-weight: bold;");
         Label logoSub = new Label(rolActual == null ? "Sistema de Tareas"
@@ -110,48 +68,52 @@ public class MainUI {
         logoBox.setPadding(new Insets(18, 16, 14, 16));
         logoBox.setStyle("-fx-border-color: transparent transparent #252525 transparent; -fx-border-width: 1px;");
 
+        // ── Sección GENERAL (siempre visible) ──
         Label lblGeneral = sectionLabel("GENERAL");
         Button btnInicio  = navBtn("◈  Inicio",      vistaActual.equals("inicio"));
         Button btnCursos  = navBtn("⊞  Ver Cursos",  vistaActual.equals("verCursos"));
         Button btnTareas  = navBtn("✦  Ver Tareas",  vistaActual.equals("verTareas"));
 
-        btnInicio.setOnAction(e  -> { vistaActual = "inicio";    refresh(stage, repo); });
-        btnCursos.setOnAction(e  -> { vistaActual = "verCursos"; refresh(stage, repo); });
-        btnTareas.setOnAction(e  -> { vistaActual = "verTareas"; refresh(stage, repo); });
+        btnInicio.setOnAction(e  -> { vistaActual = "inicio";     refresh(stage, repo); });
+        btnCursos.setOnAction(e  -> { vistaActual = "verCursos";  refresh(stage, repo); });
+        btnTareas.setOnAction(e  -> { vistaActual = "verTareas";  refresh(stage, repo); });
 
         VBox secGeneral = new VBox(2, lblGeneral, btnInicio, btnCursos, btnTareas);
 
+        // ── Sección ROL (aparece al seleccionar) ──
         VBox secRol = new VBox(2);
         if (rolActual != null) {
             Label lblRol = sectionLabel(rolActual.equals("DOCENTE") ? "DOCENTE" : "ESTUDIANTE");
             secRol.getChildren().add(lblRol);
 
             if (rolActual.equals("DOCENTE")) {
-                Button btnCrearCurso = navBtn("＋  Crear Curso",      vistaActual.equals("crearCurso"));
-                Button btnAsignar    = navBtn("📋  Asignar Tarea",    vistaActual.equals("asignarTarea"));
-                Button btnEntregas   = navBtn("↓  Ver Entregas",      vistaActual.equals("verEntregas"));
-                Button btnAlumnos    = navBtn("◎  Gestionar Alumnos", vistaActual.equals("alumnos"));
-                btnCrearCurso.setOnAction(e -> { vistaActual = "crearCurso";   refresh(stage, repo); });
+                Button btnCrearCurso = navBtn("＋  Crear Curso",       vistaActual.equals("crearCurso"));
+                Button btnAsignar    = navBtn("📋  Asignar Tarea",      vistaActual.equals("asignarTarea"));
+                Button btnEntregas   = navBtn("↓  Ver Entregas",        vistaActual.equals("verEntregas"));
+                Button btnAlumnos    = navBtn("◎  Gestionar Alumnos",   vistaActual.equals("alumnos"));
+                btnCrearCurso.setOnAction(e -> { vistaActual = "crearCurso";  refresh(stage, repo); });
                 btnAsignar.setOnAction(e    -> { vistaActual = "asignarTarea"; refresh(stage, repo); });
-                btnEntregas.setOnAction(e   -> { vistaActual = "verEntregas";  refresh(stage, repo); });
-                btnAlumnos.setOnAction(e    -> { vistaActual = "alumnos";      refresh(stage, repo); });
+                btnEntregas.setOnAction(e   -> { vistaActual = "verEntregas"; refresh(stage, repo); });
+                btnAlumnos.setOnAction(e    -> { vistaActual = "alumnos";     refresh(stage, repo); });
                 secRol.getChildren().addAll(btnCrearCurso, btnAsignar, btnEntregas, btnAlumnos);
             } else {
-                Button btnMisTareas = navBtn("✦  Mis Tareas",     vistaActual.equals("misTareas"));
-                Button btnEntregar  = navBtn("↑  Entregar Tarea", vistaActual.equals("entregar"));
-                Button btnUnirse    = navBtn("＋  Unirse a Clase", false);
+                Button btnMisTareas = navBtn("✦  Mis Tareas",      vistaActual.equals("misTareas"));
+                Button btnEntregar  = navBtn("↑  Entregar Tarea",  vistaActual.equals("entregar"));
+                Button btnUnirse    = navBtn("＋  Unirse a Clase",  false);
                 btnMisTareas.setOnAction(e -> { vistaActual = "misTareas"; refresh(stage, repo); });
                 btnEntregar.setOnAction(e  -> { vistaActual = "entregar";  refresh(stage, repo); });
-                btnUnirse.setOnAction(e    -> { accionUnirse(repo, stage); });
+                btnUnirse.setOnAction(e    -> accionUnirse(repo, stage));
                 secRol.getChildren().addAll(btnMisTareas, btnEntregar, btnUnirse);
             }
         } else {
+            // Placeholders grises cuando no hay rol
             Label ph = new Label("Selecciona un rol para\nver más opciones");
             ph.setStyle("-fx-text-fill: #333333; -fx-font-size: 11px; -fx-padding: 12 16 8 16;");
             ph.setWrapText(true);
             secRol.getChildren().add(ph);
         }
 
+        // ── Cambiar rol ──
         VBox bottom = new VBox();
         if (rolActual != null) {
             Button btnCambiar = new Button("⇄  Cambiar rol");
@@ -188,8 +150,10 @@ public class MainUI {
 
         Label topTitle = new Label(titulo);
         topTitle.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 14px; -fx-font-weight: bold;");
+
         Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
 
+        // Botón de acción rápida en topbar según vista
         HBox topbar = new HBox(topTitle, spacer);
         topbar.setAlignment(Pos.CENTER_LEFT);
 
@@ -204,7 +168,7 @@ public class MainUI {
         return topbar;
     }
 
-    // ── CONTENIDO — corre en hilo secundario ───────────────────────────────────
+    // ── CONTENIDO CENTRAL ──────────────────────────────────────────────────────
     private VBox buildContenido(Stage stage, RepositorioController repo) {
         return switch (vistaActual) {
             case "verCursos"    -> buildVerCursos(repo);
@@ -219,16 +183,24 @@ public class MainUI {
         };
     }
 
-    // ── INICIO ─────────────────────────────────────────────────────────────────
+    // ── INICIO — 2 botones de rol ──────────────────────────────────────────────
     private VBox buildInicio(Stage stage, RepositorioController repo) {
         Label sub = new Label("¿Qué deseas hacer hoy?");
         sub.setStyle("-fx-text-fill: #555555; -fx-font-size: 13px;");
 
-        VBox cardDocente    = accionCard("📋", "Asignar Tarea",  "Crea cursos y gestiona\nlas tareas del grupo",  "DOCENTE");
+        VBox cardDocente = accionCard("📋", "Asignar Tarea", "Crea cursos y gestiona\nlas tareas del grupo", "DOCENTE");
         VBox cardEstudiante = accionCard("📤", "Entregar Tarea", "Únete a un curso y\nentrega tus trabajos", "ESTUDIANTE");
 
-        cardDocente.setOnMouseClicked(e    -> { rolActual = "DOCENTE";    vistaActual = "crearCurso"; refresh(stage, repo); });
-        cardEstudiante.setOnMouseClicked(e -> { rolActual = "ESTUDIANTE"; vistaActual = "misTareas";  refresh(stage, repo); });
+        cardDocente.setOnMouseClicked(e -> {
+            rolActual = "DOCENTE";
+            vistaActual = "crearCurso";
+            refresh(stage, repo);
+        });
+        cardEstudiante.setOnMouseClicked(e -> {
+            rolActual = "ESTUDIANTE";
+            vistaActual = "misTareas";
+            refresh(stage, repo);
+        });
 
         HBox cards = new HBox(20, cardDocente, cardEstudiante);
         cards.setAlignment(Pos.CENTER);
@@ -237,10 +209,11 @@ public class MainUI {
         center.setAlignment(Pos.CENTER);
         center.setPadding(new Insets(60, 20, 20, 20));
         center.setStyle("-fx-background-color: #111111;");
+        VBox.setVgrow(center, Priority.ALWAYS);
         return center;
     }
 
-    // ── VER CURSOS ─────────────────────────────────────────────────────────────
+    // ── VER CURSOS (compartido) ────────────────────────────────────────────────
     private VBox buildVerCursos(RepositorioController repo) {
         VBox lista = new VBox(10);
         lista.setPadding(new Insets(20));
@@ -267,7 +240,7 @@ public class MainUI {
         return lista;
     }
 
-    // ── VER TAREAS ─────────────────────────────────────────────────────────────
+    // ── VER TAREAS (compartido) ────────────────────────────────────────────────
     private VBox buildVerTareas(RepositorioController repo) {
         VBox lista = new VBox(10);
         lista.setPadding(new Insets(20));
@@ -289,7 +262,7 @@ public class MainUI {
         return lista;
     }
 
-    // ── CREAR CURSO ────────────────────────────────────────────────────────────
+    // ── CREAR CURSO (docente) ──────────────────────────────────────────────────
     private VBox buildCrearCurso(Stage stage, RepositorioController repo) {
         Label info = new Label("Crea un nuevo curso para empezar a asignar tareas.");
         info.setStyle("-fx-text-fill: #555555; -fx-font-size: 12px;");
@@ -325,7 +298,7 @@ public class MainUI {
         return wrap;
     }
 
-    // ── ASIGNAR TAREA ──────────────────────────────────────────────────────────
+    // ── ASIGNAR TAREA (docente) ────────────────────────────────────────────────
     private VBox buildAsignarTarea(Stage stage, RepositorioController repo) {
         Label lC = fieldLbl("Curso");
         ComboBox<Curso> cursosBox = new ComboBox<>();
@@ -335,11 +308,14 @@ public class MainUI {
 
         Label lT = fieldLbl("Título de la tarea");
         TextField titulo = new TextField();
-        titulo.setPromptText("Ej: Proyecto final de algoritmos");
+        titulo.setPromptText("Ej: Proyecto final");
         titulo.setMaxWidth(Double.MAX_VALUE);
 
-        Label infoIA = new Label("🤖 La dificultad será asignada automáticamente por IA");
-        infoIA.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px; -fx-padding: 4 0;");
+        Label lD = fieldLbl("Dificultad");
+        ComboBox<Tarea.Dificultad> difBox = new ComboBox<>();
+        difBox.getItems().addAll(Tarea.Dificultad.values());
+        difBox.setPromptText("Selecciona dificultad");
+        difBox.setMaxWidth(Double.MAX_VALUE);
 
         Label msg = new Label();
         Button crearBtn = new Button("Asignar Tarea →");
@@ -347,33 +323,20 @@ public class MainUI {
         crearBtn.setPrefHeight(42);
         crearBtn.setOnAction(e -> {
             Curso c = cursosBox.getValue();
-            if (c == null || titulo.getText().isBlank()) {
+            Tarea.Dificultad dif = difBox.getValue();
+            if (c == null || titulo.getText().isBlank() || dif == null) {
                 msg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;");
                 msg.setText("⚠ Completa todos los campos"); return;
             }
-            msg.setStyle("-fx-text-fill: #fbbf24; -fx-font-size: 12px;");
-            msg.setText("⏳ Clasificando con IA...");
-            crearBtn.setDisable(true);
-            String tituloTarea = titulo.getText();
-            new Thread(() -> {
-                Tarea.Dificultad dif = GestorIA.clasificar(tituloTarea);
-                repo.tareasController.crearTarea(null, c, tituloTarea, null, dif);
-                Platform.runLater(() -> {
-                    String emoji = switch (dif) {
-                        case FACIL   -> "🟢";
-                        case MEDIO   -> "🟡";
-                        case DIFICIL -> "🔴";
-                    };
-                    msg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;");
-                    msg.setText("✓ Tarea creada — IA clasificó como: " + emoji + " " + dif.toString());
-                    titulo.clear();
-                    cursosBox.getSelectionModel().clearSelection();
-                    crearBtn.setDisable(false);
-                });
-            }).start();
+            repo.tareasController.crearTarea(null, c, titulo.getText(), null, dif);
+            msg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;");
+            msg.setText("✓ Tarea asignada correctamente");
+            titulo.clear();
+            cursosBox.getSelectionModel().clearSelection();
+            difBox.getSelectionModel().clearSelection();
         });
 
-        VBox card = new VBox(12, lC, cursosBox, lT, titulo, infoIA, msg, crearBtn);
+        VBox card = new VBox(12, lC, cursosBox, lT, titulo, lD, difBox, msg, crearBtn);
         card.setPadding(new Insets(20));
         card.setMaxWidth(420);
         card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
@@ -384,7 +347,7 @@ public class MainUI {
         return wrap;
     }
 
-    // ── VER ENTREGAS ───────────────────────────────────────────────────────────
+    // ── VER ENTREGAS (docente) ─────────────────────────────────────────────────
     private VBox buildVerEntregas(RepositorioController repo) {
         Label lC = fieldLbl("Curso");
         ComboBox<Curso> cursosBox = new ComboBox<>();
@@ -437,7 +400,7 @@ public class MainUI {
         return wrap;
     }
 
-    // ── GESTIONAR ALUMNOS ──────────────────────────────────────────────────────
+    // ── GESTIONAR ALUMNOS (docente) ────────────────────────────────────────────
     private VBox buildAlumnos(Stage stage, RepositorioController repo) {
         Label lC = fieldLbl("Curso");
         ComboBox<Curso> cursosBox = new ComboBox<>();
@@ -482,8 +445,9 @@ public class MainUI {
         return wrap;
     }
 
-    // ── MIS TAREAS — HU-05 ─────────────────────────────────────────────────────
+    // ── MIS TAREAS — HU-05 (estudiante) ───────────────────────────────────────
     private VBox buildMisTareas(RepositorioController repo) {
+        // Para demo: muestra todas las tareas de todos los cursos ordenadas por dificultad
         java.util.List<Tarea> tareas = new java.util.ArrayList<>();
         for (Curso c : repo.gestorCurso.listarCursos()) tareas.addAll(c.getTareas());
         tareas.sort(java.util.Comparator.comparing(Tarea::getDificultad));
@@ -493,31 +457,19 @@ public class MainUI {
         long dificil = tareas.stream().filter(t -> t.getDificultad() == Tarea.Dificultad.DIFICIL).count();
 
         HBox stats = new HBox(12,
-                statCard("Total",   String.valueOf(tareas.size()), "#a0a0a0"),
-                statCard("Fácil",   String.valueOf(facil),         "#4ade80"),
-                statCard("Medio",   String.valueOf(medio),         "#fbbf24"),
-                statCard("Difícil", String.valueOf(dificil),       "#f87171")
+                statCard("Total",    String.valueOf(tareas.size()), "#a0a0a0"),
+                statCard("Fácil",    String.valueOf(facil),         "#4ade80"),
+                statCard("Medio",    String.valueOf(medio),         "#fbbf24"),
+                statCard("Difícil",  String.valueOf(dificil),       "#f87171")
         );
         stats.setPadding(new Insets(20, 20, 8, 20));
-
-        Label recomendacion = new Label();
-        if (!tareas.isEmpty()) {
-            if (facil > 0) recomendacion.setText("💡 Te recomendamos empezar por las tareas marcadas como Fácil");
-            else if (medio > 0) recomendacion.setText("💡 Te recomendamos empezar por las tareas de dificultad Media");
-            else recomendacion.setText("💪 Solo tienes tareas difíciles — ¡ánimo, empieza cuanto antes!");
-        } else {
-            recomendacion.setText("No tienes tareas aún. Únete a una clase primero.");
-        }
-        recomendacion.setStyle("-fx-text-fill: #888888; -fx-font-size: 12px; -fx-background-color: #1e1e1e; -fx-padding: 10 14; -fx-background-radius: 8;");
-        recomendacion.setWrapText(true);
-
-        VBox recBox = new VBox(recomendacion);
-        recBox.setPadding(new Insets(0, 20, 8, 20));
 
         VBox lista = new VBox(8);
         lista.setPadding(new Insets(4, 20, 20, 20));
 
-        if (!tareas.isEmpty()) {
+        if (tareas.isEmpty()) {
+            lista.getChildren().add(emptyLabel("No hay tareas disponibles. Únete a una clase primero."));
+        } else {
             boolean addF = false, addM = false, addD = false;
             for (Tarea t : tareas) {
                 switch (t.getDificultad()) {
@@ -528,19 +480,19 @@ public class MainUI {
             }
         }
 
-        VBox content = new VBox(stats, recBox, lista);
+        VBox content = new VBox(stats, lista);
         content.setStyle("-fx-background-color: #111111;");
         return content;
     }
 
-    // ── ENTREGAR TAREA ─────────────────────────────────────────────────────────
+    // ── ENTREGAR TAREA (estudiante) ────────────────────────────────────────────
     private VBox buildEntregar(Stage stage, RepositorioController repo) {
         Label lNombre = fieldLbl("Tu nombre");
         TextField nombreField = new TextField();
         nombreField.setPromptText("Ej: Ana López");
         nombreField.setMaxWidth(Double.MAX_VALUE);
 
-        Label lC = fieldLbl("Código del curso");
+        Label lC = fieldLbl("Curso (código)");
         TextField codigoField = new TextField();
         codigoField.setPromptText("Ej: C1");
         codigoField.setMaxWidth(Double.MAX_VALUE);
@@ -550,10 +502,11 @@ public class MainUI {
         tareasBox.setPromptText("Primero ingresa el código del curso");
         tareasBox.setMaxWidth(Double.MAX_VALUE);
 
-        Label msgBuscar = new Label();
         Button buscarBtn = new Button("Buscar curso");
         buscarBtn.setMaxWidth(Double.MAX_VALUE);
         buscarBtn.getStyleClass().add("button-ghost");
+        Label msgBuscar = new Label();
+
         buscarBtn.setOnAction(e -> {
             tareasBox.getItems().clear();
             String cod = codigoField.getText().trim();
@@ -582,11 +535,7 @@ public class MainUI {
             javafx.stage.FileChooser fc = new javafx.stage.FileChooser();
             fc.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("PDF Files", "*.pdf"));
             java.io.File f = fc.showOpenDialog(stage);
-            if (f != null) {
-                archivoSel[0] = f;
-                archivoLabel.setText("✓ " + f.getName());
-                archivoLabel.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;");
-            }
+            if (f != null) { archivoSel[0] = f; archivoLabel.setText("✓ " + f.getName()); archivoLabel.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;"); }
         });
 
         Label msg = new Label();
@@ -595,7 +544,7 @@ public class MainUI {
         subirBtn.setPrefHeight(42);
         subirBtn.setOnAction(e -> {
             String nombre = nombreField.getText().trim();
-            Tarea tarea   = tareasBox.getValue();
+            Tarea tarea = tareasBox.getValue();
             if (nombre.isBlank() || tarea == null || archivoSel[0] == null) {
                 msg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;");
                 msg.setText("⚠ Completa todos los campos"); return;
@@ -628,7 +577,7 @@ public class MainUI {
         d.setHeaderText("Nombre del nuevo curso");
         d.showAndWait().ifPresent(nombre -> {
             if (!nombre.isBlank()) {
-                repo.gestorCurso.crearCurso(nombre, null);
+                Curso c = repo.gestorCurso.crearCurso(nombre, null);
                 vistaActual = "verCursos";
                 refresh(stage, repo);
             }
@@ -639,6 +588,7 @@ public class MainUI {
         TextInputDialog d = new TextInputDialog();
         d.setTitle("Unirse a clase");
         d.setHeaderText("Ingresa el código de la clase (Ej: C1)");
+        // Para demo creamos un alumno temporal
         d.showAndWait().ifPresent(codigo -> {
             Alumno alumno = new Alumno(0, "Estudiante", "estudiante");
             repo.gestorCurso.unirseClase(alumno, codigo);
@@ -647,12 +597,12 @@ public class MainUI {
     }
 
     private VBox accionCard(String emoji, String titulo, String desc, String rol) {
-        Label icon      = new Label(emoji); icon.setStyle("-fx-font-size: 28px;");
+        Label icon = new Label(emoji); icon.setStyle("-fx-font-size: 28px;");
         Label tituloLbl = new Label(titulo); tituloLbl.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 14px; -fx-font-weight: bold;");
-        Label descLbl   = new Label(desc);   descLbl.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px; -fx-text-alignment: center;"); descLbl.setAlignment(Pos.CENTER); descLbl.setWrapText(true);
-        String tagStyle = rol.equals("DOCENTE") ? "-fx-background-color: rgba(100,100,220,0.12); -fx-text-fill: #7777cc;" : "-fx-background-color: rgba(80,180,80,0.12); -fx-text-fill: #55aa55;";
+        Label descLbl = new Label(desc); descLbl.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px; -fx-text-alignment: center;"); descLbl.setAlignment(Pos.CENTER); descLbl.setWrapText(true);
+        String tagColor = rol.equals("DOCENTE") ? "-fx-background-color: rgba(100,100,220,0.12); -fx-text-fill: #7777cc;" : "-fx-background-color: rgba(80,180,80,0.12); -fx-text-fill: #55aa55;";
         Label tag = new Label(rol.equals("DOCENTE") ? "Docente" : "Estudiante");
-        tag.setStyle(tagStyle + " -fx-font-size: 10px; -fx-padding: 2 10 2 10; -fx-background-radius: 20;");
+        tag.setStyle(tagColor + " -fx-font-size: 10px; -fx-padding: 2 10 2 10; -fx-background-radius: 20;");
         VBox card = new VBox(10, icon, tituloLbl, descLbl, tag);
         card.setAlignment(Pos.CENTER);
         card.setPrefSize(175, 185);
@@ -688,8 +638,8 @@ public class MainUI {
     private Label difBadge(Tarea.Dificultad d) {
         Label l = new Label();
         switch (d) {
-            case FACIL   -> { l.setText("Fácil");   l.setStyle("-fx-background-color: rgba(74,222,128,0.12);  -fx-text-fill: #4ade80; -fx-font-size: 10px; -fx-padding: 3 10 3 10; -fx-background-radius: 20;"); }
-            case MEDIO   -> { l.setText("Medio");   l.setStyle("-fx-background-color: rgba(251,191,36,0.12);  -fx-text-fill: #fbbf24; -fx-font-size: 10px; -fx-padding: 3 10 3 10; -fx-background-radius: 20;"); }
+            case FACIL   -> { l.setText("Fácil");   l.setStyle("-fx-background-color: rgba(74,222,128,0.12); -fx-text-fill: #4ade80; -fx-font-size: 10px; -fx-padding: 3 10 3 10; -fx-background-radius: 20;"); }
+            case MEDIO   -> { l.setText("Medio");   l.setStyle("-fx-background-color: rgba(251,191,36,0.12); -fx-text-fill: #fbbf24; -fx-font-size: 10px; -fx-padding: 3 10 3 10; -fx-background-radius: 20;"); }
             case DIFICIL -> { l.setText("Difícil"); l.setStyle("-fx-background-color: rgba(248,113,113,0.12); -fx-text-fill: #f87171; -fx-font-size: 10px; -fx-padding: 3 10 3 10; -fx-background-radius: 20;"); }
         }
         return l;
