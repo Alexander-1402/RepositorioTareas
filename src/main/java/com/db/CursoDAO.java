@@ -173,6 +173,29 @@ public class CursoDAO {
         } catch (SQLException e) { e.printStackTrace(); }
     }
 
+    public static List<Curso> listarConDetalles() {
+        List<Curso> cursos = new ArrayList<>();
+        String sql = "SELECT * FROM cursos";
+
+        try (Connection conn = ConexionDB.getConexion();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                Curso c = new Curso(rs.getInt("id"), rs.getString("nombre"), rs.getString("codigo"));
+                c.setTareas(TareaDAO.listarPorCurso(c.getId()));
+
+                // Cargamos los recursos (enlaces) usando tu RecursoDAO
+                c.setRecursos(RecursoDAO.obtenerPorCurso(c.getId()));
+
+                cursos.add(c);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return cursos;
+    }
+
     // ── Obtener alumnos de un curso ───────────
     public static List<Alumno> obtenerAlumnosDeCurso(int cursoId) {
         List<Alumno> alumnos = new ArrayList<>();

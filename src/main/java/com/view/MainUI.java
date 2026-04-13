@@ -21,6 +21,7 @@ public class MainUI {
 
     private String rolActual   = null;
     private String vistaActual = "inicio";
+    private Curso cursoSeleccionado = null;
 
     public MainUI(Stage stage, RepositorioController repo) {
         stage.setScene(buildScene(stage, repo));
@@ -224,6 +225,7 @@ public class MainUI {
             case "entregar"     -> buildEntregar(stage, repo);
             case "mensajes"     -> buildVistaMensajes(stage, repo); // se añadio vista mensajes HU-03 - KATERINE
             case "vincularRecurso" -> buildVincularRecurso(repo, stage);
+            case "detalleCurso" -> buildDetalleCurso(repo);
             default             -> buildInicio(stage, repo);
         };
     }
@@ -269,6 +271,14 @@ public class MainUI {
                 card.setAlignment(Pos.CENTER_LEFT);
                 card.setPadding(new Insets(13, 16, 13, 16));
                 card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10;");
+                card.setOnMouseClicked(e -> {
+                    cursoSeleccionado = c;
+                    vistaActual = "detalleCurso";
+
+                    // Obtenemos el stage desde la ventana donde se hizo clic
+                    Stage currentStage = (Stage) card.getScene().getWindow();
+                    refresh(currentStage, repo);
+                });
                 lista.getChildren().add(card);
             }
         }
@@ -826,6 +836,77 @@ public class MainUI {
         card.setOnMouseEntered(e -> card.setStyle("-fx-background-color: #252525; -fx-border-color: #444444; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14; -fx-cursor: hand;"));
         card.setOnMouseExited(e  -> card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14; -fx-cursor: hand;"));
         return card;
+    }
+
+    // ── DETALLE DEL CURSO ───────────────────────────────────
+    private VBox buildDetalleCurso(RepositorioController repo) {
+        if (cursoSeleccionado == null) return buildInicio(null, repo); // Fallback
+
+        VBox lista = new VBox(15);
+        lista.setPadding(new Insets(20));
+        lista.setStyle("-fx-background-color: #111111;");
+        Label title = new Label(cursoSeleccionado.getNombre().toUpperCase());
+        title.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 18px; -fx-font-weight: bold; -fx-padding: 0 0 10 0;");
+        Label meta = new Label("Código: " + cursoSeleccionado.getCodigo());
+        meta.setStyle("-fx-text-fill: #555555; -fx-font-size: 12px;");
+        lista.getChildren().addAll(new VBox(2, title, meta));
+        Label tasksLbl = secLabel("TAREAS ASIGNADAS");
+        VBox tasksList = new VBox(8);
+        if (cursoSeleccionado.getTareas().isEmpty()) {
+            tasksList.getChildren().add(emptyLabel("No hay tareas asignadas."));
+        } else {
+            for (Tarea t : cursoSeleccionado.getTareas()) {
+                tasksList.getChildren().add(tareaFila(t));
+            }
+        }
+        lista.getChildren().addAll(tasksLbl, tasksList);
+        Label resourcesLbl = secLabel("MATERIAL DE APOYO");
+        VBox resourcesList = new VBox(8);
+        if (cursoSeleccionado.getRecursos().isEmpty()) {
+            resourcesList.getChildren().add(emptyLabel("No se ha subido material de apoyo aún."));
+        } else {
+            for (Recurso r : cursoSeleccionado.getRecursos()) {
+                resourcesList.getChildren().add(recursoFilaClickeable(r));
+            }
+        }
+        lista.getChildren().addAll(resourcesLbl, resourcesList);
+        Button backBtn = new Button("← Volver a Cursos");
+        backBtn.getStyleClass().add("button-ghost");
+        backBtn.setOnAction(e -> { vistaActual = "verCursos"; refresh(null, repo); });
+        lista.getChildren().add(new VBox(20, backBtn));
+
+        return lista;
+    }
+
+    private HBox recursoFilaClickeable(Recurso r) {
+        String emoji = switch (r.getTipo()) {
+            case VIDEO       -> "▶";
+            case PDF         -> "📄";
+            case REPOSITORIO -> "📦";
+            case ARTICULO    -> "🌐";
+        };
+        Label icon = new Label(emoji);
+        icon.setStyle("-fx-font-size: 16px; -fx-text-fill: #a0a0a0;");
+        Label nombre = new Label(r.getTitulo());
+        nombre.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 13px; -fx-font-weight: bold;");
+
+        Region sp = new Region(); HBox.setHgrow(sp, Priority.ALWAYS);
+        Label openIcon = new Label("↗");
+        openIcon.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 14px;"); // Verde sutil
+
+        HBox row = new HBox(12, icon, new VBox(2, nombre), sp, openIcon);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(12, 16, 12, 16));
+        String baseStyle = "-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10; -fx-cursor: hand;";
+        String hoverStyle = "-fx-background-color: #252525; -fx-border-color: #4ade80; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10; -fx-cursor: hand;";
+        row.setStyle(baseStyle);
+        row.setOnMouseEntered(e -> row.setStyle(hoverStyle));
+        row.setOnMouseExited(e  -> row.setStyle(baseStyle));
+        row.setOnMouseClicked(e -> {
+            r.abrirEnNavegador();
+        });
+
+        return row;
     }
 
     private HBox tareaFila(Tarea t) {

@@ -1,4 +1,6 @@
 package com.model;
+import java.awt.Desktop;
+import java.net.URI;
 
 public class Recurso {
     public enum TipoRecurso { VIDEO, ARTICULO, REPOSITORIO, PDF }
@@ -14,6 +16,19 @@ public class Recurso {
         this.tipo = tipo;
         this.enlace = enlace;
         this.cursoId = cursoId;
+    }
+
+    public void abrirEnNavegador() {
+        if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+            try {
+                Desktop.getDesktop().browse(new URI(this.enlace));
+            } catch (Exception e) {
+                System.err.println("Error al abrir el enlace: " + e.getMessage());
+                e.printStackTrace();
+            }
+        } else {
+            System.err.println("La plataforma no soporta la apertura del navegador.");
+        }
     }
 
     public int getId() { return id; }

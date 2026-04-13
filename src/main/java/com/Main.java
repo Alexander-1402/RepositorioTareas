@@ -12,7 +12,6 @@ public class Main extends Application {
     public void start(Stage stage) {
         // Migración automática — crea tablas si no existen
         ConexionDB.inicializarTablas();
-
         RepositorioController repo = new RepositorioController();
         new MainUI(stage, repo);
     }

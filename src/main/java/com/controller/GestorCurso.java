@@ -2,6 +2,7 @@ package com.controller;
 
 import com.db.CursoDAO;
 import com.db.TareaDAO;
+import com.db.RecursoDAO;
 import com.model.*;
 
 import java.util.List;
@@ -33,7 +34,10 @@ public class GestorCurso {
         for (Curso c : cursos) {
             List<Tarea> tareas = TareaDAO.listarPorCurso(c.getId());
             for (Tarea t : tareas) c.agregarTarea(t);
+            List<Recurso> recursos = RecursoDAO.obtenerPorCurso(c.getId());
+            for (Recurso r : recursos) c.agregarRecurso(r);
         }
+
         return cursos;
     }
 
@@ -49,6 +53,6 @@ public class GestorCurso {
     // ── Antes: N+1 consultas por cada curso ──
     // ── Ahora: solo 2 consultas con JOIN ─────
     public List<Curso> listarCursos() {
-        return CursoDAO.listarConTareasYAlumnos();
+        return CursoDAO.listarConDetalles();
     }
 }

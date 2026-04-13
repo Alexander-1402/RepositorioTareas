@@ -18,6 +18,11 @@ public class Curso {
         this.profesor = profesor;
         this.codigo   = codigo;
     }
+    public Curso(int id, String nombre, String codigo) {
+        this.id = id;
+        this.nombre = nombre;
+        this.codigo = codigo;
+    }
 
     public void agregarAlumno(Alumno a)   { alumnos.add(a);  }
     public void agregarTarea(Tarea t)     { tareas.add(t);   }
@@ -29,7 +34,10 @@ public class Curso {
     public String getCodigo()       { return codigo; }
     public List<Alumno> getAlumnos(){ return alumnos; }
     public List<Tarea> getTareas()  { return tareas; }
+    public void setTareas(List<Tarea> tareas) { this.tareas = tareas; }
     public List<Recurso> getRecursos() { return recursos; }
+    public void setRecursos(List<Recurso> recursos) { this.recursos = recursos; }
+
 
     @Override
     public String toString() { return nombre + " (" + codigo + ")"; }
