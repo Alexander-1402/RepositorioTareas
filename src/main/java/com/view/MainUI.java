@@ -10,7 +10,7 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.stage.Stage;
-
+import com.EntregaJSON;
 import com.controller.GestorIA;
 import com.controller.RepositorioController;
 import com.model.*;
@@ -287,27 +287,136 @@ public class MainUI {
     }
 
     // ── VER TAREAS ─────────────────────────────────────────────────────────────
-    private VBox buildVerTareas(RepositorioController repo) {
-        VBox lista = new VBox(10);
-        lista.setPadding(new Insets(20));
-        List<Curso> cursos = repo.gestorCurso.listarCursos();
-        boolean hayTareas = false;
-        for (Curso c : cursos) {
-            if (!c.getTareas().isEmpty()) {
-                Label cursoLabel = new Label(c.getNombre().toUpperCase());
-                cursoLabel.setStyle("-fx-text-fill: #3a3a3a; -fx-font-size: 10px; -fx-font-weight: bold; -fx-padding: 8 0 4 0;");
-                lista.getChildren().add(cursoLabel);
-                for (Tarea t : c.getTareas()) {
-                    lista.getChildren().add(tareaFila(t));
-                    hayTareas = true;
-                }
+    // ── VER TAREAS ─────────────────────────────────────────────────────────────
+private VBox buildVerTareas(RepositorioController repo) {
+
+    VBox lista = new VBox(10);
+    lista.setPadding(new Insets(20));
+
+    List<Curso> cursos = repo.gestorCurso.listarCursos();
+    boolean hayTareas = false;
+
+    for (Curso c : cursos) {
+
+        if (!c.getTareas().isEmpty()) {
+
+            Label cursoLabel = new Label(c.getNombre().toUpperCase());
+            cursoLabel.setStyle("-fx-text-fill: #3a3a3a; -fx-font-size: 10px; -fx-font-weight: bold; -fx-padding: 8 0 4 0;");
+            lista.getChildren().add(cursoLabel);
+
+            for (Tarea t : c.getTareas()) {
+
+                HBox fila = tareaFila(t);
+
+               
+                fila.setStyle("-fx-background-color: #1e1e1e; -fx-padding: 10; -fx-background-radius: 10;");
+
+                fila.setOnMouseEntered(e ->
+                    fila.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 10; -fx-background-radius: 10;")
+                );
+
+                fila.setOnMouseExited(e ->
+                    fila.setStyle("-fx-background-color: #1e1e1e; -fx-padding: 10; -fx-background-radius: 10;")
+                );
+
+                
+                fila.setOnMouseClicked(e -> {
+                    mostrarDetalleTarea(t, repo);
+                });
+
+                lista.getChildren().add(fila);
+                hayTareas = true;
             }
         }
-        if (!hayTareas) lista.getChildren().add(emptyLabel("No hay tareas creadas aún."));
-        lista.setStyle("-fx-background-color: #111111;");
-        return lista;
     }
 
+    if (!hayTareas) {
+        lista.getChildren().add(emptyLabel("No hay tareas creadas aún."));
+    }
+
+    lista.setStyle("-fx-background-color: #111111;");
+    return lista;
+}
+ private void mostrarDetalleTarea(Tarea t, RepositorioController repo) {
+
+    VBox root = new VBox(15);
+    root.setPadding(new Insets(20));
+    root.setStyle("-fx-background-color: #111111;");
+
+    Label titulo = new Label("DETALLE DE TAREA");
+    titulo.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
+
+    Label nombre = new Label("Tarea: " + t.getTitulo());
+    nombre.setStyle("-fx-text-fill: #cccccc;");
+
+    Label desc = new Label("Descripción: " + t.getDescripcion());
+    desc.setStyle("-fx-text-fill: #aaaaaa;");
+    desc.setWrapText(true);
+
+    root.getChildren().addAll(titulo, nombre, desc);
+
+    Scene scene = new Scene(root, 400, 300);
+    Stage stage = new Stage();
+    stage.setTitle("Detalle Tarea");
+    stage.setScene(scene);
+    stage.show();
+}
+
+
+      private void mostrarMiEntrega(Tarea t, RepositorioController repo) {
+
+    
+    Entrega entrega = repo.gestorEntregas.obtenerPorTarea(t)
+            .stream()
+            .findFirst()
+            .orElse(null);
+
+    VBox root = new VBox(15);
+    root.setPadding(new Insets(20));
+    root.setStyle("-fx-background-color: #111111;");
+
+    Label titulo = new Label("MI ENTREGA");
+    titulo.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
+
+    if (entrega != null) {
+
+      
+        int nota = EntregaJSON.obtenerNota(entrega.getId());
+        String comentario = EntregaJSON.obtenerComentario(entrega.getId());
+
+        Label alumnoLabel = new Label("Alumno: " + entrega.getAlumno().getNombre());
+        alumnoLabel.setStyle("-fx-text-fill: white;");
+
+        Label notaLabel = new Label("Nota: " + nota);
+        notaLabel.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 14px;");
+
+        Label comentarioLabel = new Label("Comentario: " + comentario);
+        comentarioLabel.setStyle("-fx-text-fill: #cccccc;");
+        comentarioLabel.setWrapText(true);
+
+        Button descargar = new Button("Descargar PDF");
+        descargar.setOnAction(e -> {
+            try {
+                java.awt.Desktop.getDesktop().open(entrega.getArchivo());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        });
+
+        root.getChildren().addAll(titulo, alumnoLabel, notaLabel, comentarioLabel, descargar);
+
+    } else {
+        Label no = new Label("No has enviado esta tarea.");
+        no.setStyle("-fx-text-fill: #f87171;");
+        root.getChildren().addAll(titulo, no);
+    }
+
+    Scene scene = new Scene(root, 400, 300);
+    Stage stage = new Stage();
+    stage.setTitle("Mi Entrega");
+    stage.setScene(scene);
+    stage.show();
+}
     // ── VINCULAR RECURSO (docente) ────────────────────────────────────────────
     private VBox buildVincularRecurso(RepositorioController repo, Stage stage) {
         Label info = new Label("Vincula material de apoyo (Videos, PDFs o Enlaces) a tus cursos mediante URLs.");
@@ -464,6 +573,7 @@ public class MainUI {
     }
 
     // ── VER ENTREGAS ───────────────────────────────────────────────────────────
+    // ── VER ENTREGAS ───────────────────────────────────────────────────────────
     private VBox buildVerEntregas(RepositorioController repo) {
         Label lC = fieldLbl("Curso");
         ComboBox<Curso> cursosBox = new ComboBox<>();
@@ -492,29 +602,69 @@ public class MainUI {
             if (entregas.isEmpty()) {
                 listaEntregas.getChildren().add(emptyLabel("Sin entregas para esta tarea."));
             } else {
-                for (Entrega en : entregas) {
-                    Label alumnoLbl = new Label(en.getAlumno().getNombre());
-                    alumnoLbl.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 13px; -fx-font-weight: bold;");
-                    Label archivoLbl = new Label("↳ " + en.getArchivo().getName());
-                    archivoLbl.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px;");
-                    HBox row = new HBox(new VBox(2, alumnoLbl, archivoLbl));
-                    row.setPadding(new Insets(10, 14, 10, 14));
-                    row.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10;");
-                    listaEntregas.getChildren().add(row);
-                }
+              for (Entrega en : entregas) {
+
+    Label alumnoLbl = new Label(en.getAlumno().getNombre());
+    alumnoLbl.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 13px; -fx-font-weight: bold;");
+
+    Label archivoLbl = new Label("↳ " + en.getArchivo().getName());
+    archivoLbl.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px;");
+
+  
+    TextField notaField = new TextField();
+    notaField.setPromptText("Nota (1-100)");
+    notaField.setMaxWidth(80);
+
+    
+    TextField comentarioField = new TextField();
+    comentarioField.setPromptText("Comentario...");
+    comentarioField.setMaxWidth(Double.MAX_VALUE);
+
+   
+    Button descargarBtn = new Button("Descargar");
+    descargarBtn.getStyleClass().add("button-ghost");
+    descargarBtn.setOnAction(ev -> {
+        try {
+            java.awt.Desktop.getDesktop().open(en.getArchivo());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    });
+
+    
+    Button guardarBtn = new Button("Guardar");
+    guardarBtn.setOnAction(ev -> {
+        try {
+            int nota = Integer.parseInt(notaField.getText());
+
+            if (nota < 1 || nota > 100) {
+                System.out.println("Nota inválida");
+                return;
             }
-        });
 
-        VBox card = new VBox(12, lC, cursosBox, lT, tareasBox, verBtn, listaEntregas);
-        card.setPadding(new Insets(20));
-        card.setMaxWidth(460);
-        card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
+            String comentario = comentarioField.getText();
 
-        VBox wrap = new VBox(card);
-        wrap.setPadding(new Insets(20));
-        wrap.setStyle("-fx-background-color: #111111;");
-        return wrap;
-    }
+           
+            System.out.println("Alumno: " + en.getAlumno().getNombre());
+            System.out.println("Nota: " + nota);
+            System.out.println("Comentario: " + comentario);
+
+        } catch (NumberFormatException ex) {
+            System.out.println("Ingresa un número válido");
+        }
+    });
+
+    
+    HBox controles = new HBox(10, notaField, comentarioField, guardarBtn, descargarBtn);
+
+    VBox contenido = new VBox(5, alumnoLbl, archivoLbl, controles);
+
+    HBox row = new HBox(contenido);
+    row.setPadding(new Insets(10, 14, 10, 14));
+    row.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10;");
+
+    listaEntregas.getChildren().add(row);
+}
 
     // ── GESTIONAR ALUMNOS ──────────────────────────────────────────────────────
     private VBox buildAlumnos(Stage stage, RepositorioController repo) {
@@ -563,55 +713,88 @@ public class MainUI {
 
     // ── MIS TAREAS — HU-05 ─────────────────────────────────────────────────────
     private VBox buildMisTareas(RepositorioController repo) {
-        java.util.List<Tarea> tareas = new java.util.ArrayList<>();
-        for (Curso c : repo.gestorCurso.listarCursos()) tareas.addAll(c.getTareas());
-        tareas.sort(java.util.Comparator.comparing(Tarea::getDificultad));
 
-        long facil   = tareas.stream().filter(t -> t.getDificultad() == Tarea.Dificultad.FACIL).count();
-        long medio   = tareas.stream().filter(t -> t.getDificultad() == Tarea.Dificultad.MEDIO).count();
-        long dificil = tareas.stream().filter(t -> t.getDificultad() == Tarea.Dificultad.DIFICIL).count();
+    java.util.List<Tarea> tareas = new java.util.ArrayList<>();
+    for (Curso c : repo.gestorCurso.listarCursos()) tareas.addAll(c.getTareas());
+    tareas.sort(java.util.Comparator.comparing(Tarea::getDificultad));
 
-        HBox stats = new HBox(12,
-                statCard("Total",   String.valueOf(tareas.size()), "#a0a0a0"),
-                statCard("Fácil",   String.valueOf(facil),         "#4ade80"),
-                statCard("Medio",   String.valueOf(medio),         "#fbbf24"),
-                statCard("Difícil", String.valueOf(dificil),       "#f87171")
-        );
-        stats.setPadding(new Insets(20, 20, 8, 20));
+    long facil   = tareas.stream().filter(t -> t.getDificultad() == Tarea.Dificultad.FACIL).count();
+    long medio   = tareas.stream().filter(t -> t.getDificultad() == Tarea.Dificultad.MEDIO).count();
+    long dificil = tareas.stream().filter(t -> t.getDificultad() == Tarea.Dificultad.DIFICIL).count();
 
-        Label recomendacion = new Label();
-        if (!tareas.isEmpty()) {
-            if (facil > 0) recomendacion.setText("💡 Te recomendamos empezar por las tareas marcadas como Fácil");
-            else if (medio > 0) recomendacion.setText("💡 Te recomendamos empezar por las tareas de dificultad Media");
-            else recomendacion.setText("💪 Solo tienes tareas difíciles — ¡ánimo, empieza cuanto antes!");
-        } else {
-            recomendacion.setText("No tienes tareas aún. Únete a una clase primero.");
-        }
-        recomendacion.setStyle("-fx-text-fill: #888888; -fx-font-size: 12px; -fx-background-color: #1e1e1e; -fx-padding: 10 14; -fx-background-radius: 8;");
-        recomendacion.setWrapText(true);
+    HBox stats = new HBox(12,
+            statCard("Total",   String.valueOf(tareas.size()), "#a0a0a0"),
+            statCard("Fácil",   String.valueOf(facil),         "#4ade80"),
+            statCard("Medio",   String.valueOf(medio),         "#fbbf24"),
+            statCard("Difícil", String.valueOf(dificil),       "#f87171")
+    );
+    stats.setPadding(new Insets(20, 20, 8, 20));
 
-        VBox recBox = new VBox(recomendacion);
-        recBox.setPadding(new Insets(0, 20, 8, 20));
+    Label recomendacion = new Label();
+    if (!tareas.isEmpty()) {
+        if (facil > 0) recomendacion.setText("💡 Te recomendamos empezar por las tareas marcadas como Fácil");
+        else if (medio > 0) recomendacion.setText("💡 Te recomendamos empezar por las tareas de dificultad Media");
+        else recomendacion.setText("💪 Solo tienes tareas difíciles — ¡ánimo, empieza cuanto antes!");
+    } else {
+        recomendacion.setText("No tienes tareas aún. Únete a una clase primero.");
+    }
 
-        VBox lista = new VBox(8);
-        lista.setPadding(new Insets(4, 20, 20, 20));
+    recomendacion.setStyle("-fx-text-fill: #888888; -fx-font-size: 12px; -fx-background-color: #1e1e1e; -fx-padding: 10 14; -fx-background-radius: 8;");
+    recomendacion.setWrapText(true);
 
-        if (!tareas.isEmpty()) {
-            boolean addF = false, addM = false, addD = false;
-            for (Tarea t : tareas) {
-                switch (t.getDificultad()) {
-                    case FACIL   -> { if (!addF) { lista.getChildren().add(secLabel("FÁCIL"));   addF = true; } lista.getChildren().add(tareaFila(t)); }
-                    case MEDIO   -> { if (!addM) { lista.getChildren().add(secLabel("MEDIO"));   addM = true; } lista.getChildren().add(tareaFila(t)); }
-                    case DIFICIL -> { if (!addD) { lista.getChildren().add(secLabel("DIFÍCIL")); addD = true; } lista.getChildren().add(tareaFilaDificil(t)); }
+    VBox recBox = new VBox(recomendacion);
+    recBox.setPadding(new Insets(0, 20, 8, 20));
+
+    VBox lista = new VBox(8);
+    lista.setPadding(new Insets(4, 20, 20, 20));
+
+    if (!tareas.isEmpty()) {
+
+        boolean addF = false, addM = false, addD = false;
+
+        for (Tarea t : tareas) {
+
+            HBox fila = (t.getDificultad() == Tarea.Dificultad.DIFICIL)
+                    ? tareaFilaDificil(t)
+                    : tareaFila(t);
+
+         
+            fila.setStyle("-fx-background-color: #1e1e1e; -fx-padding: 10; -fx-background-radius: 10;");
+
+            fila.setOnMouseEntered(e ->
+                fila.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 10; -fx-background-radius: 10;")
+            );
+
+            fila.setOnMouseExited(e ->
+                fila.setStyle("-fx-background-color: #1e1e1e; -fx-padding: 10; -fx-background-radius: 10;")
+            );
+
+           
+            fila.setOnMouseClicked(e -> {
+                mostrarMiEntrega(t, repo);
+            });
+
+            switch (t.getDificultad()) {
+                case FACIL -> {
+                    if (!addF) { lista.getChildren().add(secLabel("FÁCIL")); addF = true; }
+                    lista.getChildren().add(fila);
+                }
+                case MEDIO -> {
+                    if (!addM) { lista.getChildren().add(secLabel("MEDIO")); addM = true; }
+                    lista.getChildren().add(fila);
+                }
+                case DIFICIL -> {
+                    if (!addD) { lista.getChildren().add(secLabel("DIFÍCIL")); addD = true; }
+                    lista.getChildren().add(fila);
                 }
             }
         }
-
-        VBox content = new VBox(stats, recBox, lista);
-        content.setStyle("-fx-background-color: #111111;");
-        return content;
     }
 
+    VBox content = new VBox(stats, recBox, lista);
+    content.setStyle("-fx-background-color: #111111;");
+    return content;
+}
     // ── ENTREGAR TAREA ─────────────────────────────────────────────────────────
     private VBox buildEntregar(Stage stage, RepositorioController repo) {
         Label lNombre = fieldLbl("Tu nombre");
@@ -679,8 +862,9 @@ public class MainUI {
                 msg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;");
                 msg.setText("⚠ Completa todos los campos"); return;
             }
-            Alumno alumno = new Alumno(System.identityHashCode(nombre), nombre, nombre.toLowerCase().replace(" ", "."));
-            repo.gestorEntregas.subirEntrega(alumno, tarea, archivoSel[0]);
+            Alumno alumno = new Alumno(1, nombre, nombre.toLowerCase().replace(" ", "."));
+            Entrega e1 = repo.gestorEntregas.subirEntrega(alumno, tarea, archivoSel[55]);
+            EntregaJSON.guardar(e1.getId(), 0, "Bien");
             msg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;");
             msg.setText("✓ Tarea entregada correctamente");
         });
