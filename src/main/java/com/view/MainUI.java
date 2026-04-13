@@ -21,6 +21,7 @@ public class MainUI {
 
     private String rolActual   = null;
     private String vistaActual = "inicio";
+    private Curso cursoActual  = null;
 
     public MainUI(Stage stage, RepositorioController repo) {
         stage.setScene(buildScene(stage, repo));
@@ -34,24 +35,19 @@ public class MainUI {
         VBox sidebar  = buildSidebar(stage, repo);
         HBox topbar   = buildTopbar(stage, repo);
 
-        // Contenedor principal que empieza con spinner
         StackPane contenedorPrincipal = new StackPane();
         contenedorPrincipal.setStyle("-fx-background-color: #111111;");
 
-        // Mostrar spinner mientras carga
         VBox spinner = buildSpinner();
         contenedorPrincipal.getChildren().add(spinner);
 
-        // Cargar contenido en hilo secundario
         Task<VBox> tarea = new Task<>() {
             @Override
             protected VBox call() {
-                // Esto corre en segundo plano — consultas a BD aquí
                 return buildContenido(stage, repo);
             }
         };
 
-        // Cuando termina, actualizar UI en hilo principal
         tarea.setOnSucceeded(e -> {
             VBox contenido = tarea.getValue();
             ScrollPane scroll = new ScrollPane(contenido);
@@ -68,7 +64,6 @@ public class MainUI {
             contenedorPrincipal.getChildren().add(error);
         });
 
-        // Arrancar el hilo secundario
         new Thread(tarea).start();
 
         VBox mainArea = new VBox(topbar, contenedorPrincipal);
@@ -83,12 +78,10 @@ public class MainUI {
         return scene;
     }
 
-    // ── SPINNER DE CARGA ───────────────────────────────────────────────────────
     private VBox buildSpinner() {
         Label cargando = new Label("Cargando...");
         cargando.setStyle("-fx-text-fill: #555555; -fx-font-size: 13px;");
 
-        // Círculo animado simple
         ProgressIndicator pi = new ProgressIndicator();
         pi.setStyle("-fx-progress-color: #666666;");
         pi.setPrefSize(36, 36);
@@ -99,7 +92,6 @@ public class MainUI {
         return box;
     }
 
-    // ── SIDEBAR ────────────────────────────────────────────────────────────────
     private VBox buildSidebar(Stage stage, RepositorioController repo) {
         Label logoTitle = new Label("TaskRepo");
         logoTitle.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 15px; -fx-font-weight: bold;");
@@ -172,18 +164,18 @@ public class MainUI {
         return sidebar;
     }
 
-    // ── TOPBAR ─────────────────────────────────────────────────────────────────
     private HBox buildTopbar(Stage stage, RepositorioController repo) {
         String titulo = switch (vistaActual) {
-            case "verCursos"    -> "Ver Cursos";
-            case "verTareas"    -> "Ver Tareas";
-            case "crearCurso"   -> "Crear Curso";
-            case "asignarTarea" -> "Asignar Tarea";
-            case "verEntregas"  -> "Ver Entregas";
-            case "alumnos"      -> "Gestionar Alumnos";
-            case "misTareas"    -> "Mis Tareas Pendientes";
-            case "entregar"     -> "Entregar Tarea";
-            default             -> "Bienvenido a TaskRepo";
+            case "verCursos"     -> "Ver Cursos";
+            case "verTareas"     -> "Ver Tareas";
+            case "crearCurso"    -> "Crear Curso";
+            case "asignarTarea"  -> "Asignar Tarea";
+            case "verEntregas"   -> "Ver Entregas";
+            case "alumnos"       -> "Gestionar Alumnos";
+            case "misTareas"     -> "Mis Tareas Pendientes";
+            case "entregar"      -> "Entregar Tarea";
+            case "detalleCurso"  -> cursoActual != null ? "Curso: " + cursoActual.getNombre() : "Detalle del Curso";
+            default              -> "Bienvenido a TaskRepo";
         };
 
         Label topTitle = new Label(titulo);
@@ -204,7 +196,6 @@ public class MainUI {
         return topbar;
     }
 
-    // ── CONTENIDO — corre en hilo secundario ───────────────────────────────────
     private VBox buildContenido(Stage stage, RepositorioController repo) {
         return switch (vistaActual) {
             case "verCursos"    -> buildVerCursos(stage, repo);
@@ -215,11 +206,11 @@ public class MainUI {
             case "alumnos"      -> buildAlumnos(stage, repo);
             case "misTareas"    -> buildMisTareas(repo);
             case "entregar"     -> buildEntregar(stage, repo);
+            case "detalleCurso" -> buildDetalleCurso(stage, repo);
             default             -> buildInicio(stage, repo);
         };
     }
 
-    // ── INICIO ─────────────────────────────────────────────────────────────────
     private VBox buildInicio(Stage stage, RepositorioController repo) {
         Label sub = new Label("¿Qué deseas hacer hoy?");
         sub.setStyle("-fx-text-fill: #555555; -fx-font-size: 13px;");
@@ -240,7 +231,6 @@ public class MainUI {
         return center;
     }
 
-    // ── VER CURSOS ─────────────────────────────────────────────────────────────
     private VBox buildVerCursos(Stage stage, RepositorioController repo) {
         VBox lista = new VBox(10);
         lista.setPadding(new Insets(20));
@@ -281,7 +271,6 @@ public class MainUI {
                                 "-fx-cursor: hand;"
                 );
 
-                // Hover
                 card.setOnMouseEntered(e -> card.setStyle(
                         "-fx-background-color: #252525; " +
                                 "-fx-border-color: #444444; " +
@@ -300,8 +289,7 @@ public class MainUI {
                                 "-fx-cursor: hand;"
                 ));
 
-                // Click para pedir código de acceso
-                card.setOnMouseClicked(e -> pedirCodigoAcceso(stage, c));
+                card.setOnMouseClicked(e -> pedirCodigoAcceso(stage, c, repo));
 
                 lista.getChildren().add(card);
             }
@@ -310,7 +298,8 @@ public class MainUI {
         lista.setStyle("-fx-background-color: #111111;");
         return lista;
     }
-    private void pedirCodigoAcceso(Stage stage, Curso curso) {
+
+    private void pedirCodigoAcceso(Stage stage, Curso curso, RepositorioController repo) {
         TextInputDialog dialog = new TextInputDialog();
         dialog.setTitle("Acceso al curso");
         dialog.setHeaderText("Ingrese el código de acceso para entrar a " + curso.getNombre());
@@ -318,16 +307,9 @@ public class MainUI {
 
         dialog.showAndWait().ifPresent(codigoIngresado -> {
             if (codigoIngresado.equalsIgnoreCase(curso.getCodigo())) {
-                Alert ok = new Alert(Alert.AlertType.INFORMATION);
-                ok.setTitle("Acceso permitido");
-                ok.setHeaderText(null);
-                ok.setContentText("Ingresaste correctamente al curso: " + curso.getNombre());
-                ok.showAndWait();
-
-                // Aquí luego puedes redirigir a una vista del curso
-                // Ejemplo:
-                // vistaActual = "detalleCurso";
-                // refresh(stage, repo);
+                cursoActual = curso;
+                vistaActual = "detalleCurso";
+                refresh(stage, repo);
             } else {
                 Alert error = new Alert(Alert.AlertType.ERROR);
                 error.setTitle("Código incorrecto");
@@ -338,7 +320,289 @@ public class MainUI {
         });
     }
 
-    // ── VER TAREAS ─────────────────────────────────────────────────────────────
+    // ====================== DETALLE DEL CURSO (CON MARCA VERDE) ======================
+    private VBox buildDetalleCurso(Stage stage, RepositorioController repo) {
+        VBox contenedor = new VBox(16);
+        contenedor.setPadding(new Insets(20));
+        contenedor.setStyle("-fx-background-color: #111111;");
+
+        if (cursoActual == null) {
+            contenedor.getChildren().add(emptyLabel("No hay curso seleccionado."));
+            return contenedor;
+        }
+
+        // Encabezado
+        Label titulo = new Label(cursoActual.getNombre());
+        titulo.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 18px; -fx-font-weight: bold;");
+
+        Label subtitulo = new Label("Código del curso: " + cursoActual.getCodigo());
+        subtitulo.setStyle("-fx-text-fill: #666666; -fx-font-size: 12px;");
+
+        Button volverBtn = new Button("← Volver a cursos");
+        volverBtn.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #d0d0d0; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #3a3a3a; -fx-cursor: hand;");
+        volverBtn.setOnAction(e -> {
+            vistaActual = "verCursos";
+            cursoActual = null;
+            refresh(stage, repo);
+        });
+
+        VBox header = new VBox(6, titulo, subtitulo, volverBtn);
+
+        // Tareas entregadas en esta sesión
+        final java.util.Set<Tarea> tareasEntregadas = new java.util.HashSet<>();
+
+        // Columna izquierda
+        VBox izquierda = new VBox(14);
+        izquierda.setPrefWidth(500);
+
+        // Material del docente
+        VBox cardMaterial = new VBox(10);
+        cardMaterial.setPadding(new Insets(16));
+        cardMaterial.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-radius: 12; -fx-background-radius: 12;");
+
+        Label matTitle = new Label("Material del docente");
+        matTitle.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 14px; -fx-font-weight: bold;");
+
+        Label matDesc = new Label("Aquí se mostrará el material, documentos o publicaciones del curso.");
+        matDesc.setWrapText(true);
+        matDesc.setStyle("-fx-text-fill: #777777; -fx-font-size: 12px;");
+
+        Label ejemploMat = new Label("• Documento guía del curso\n• Material de apoyo\n• Publicaciones del docente");
+        ejemploMat.setStyle("-fx-text-fill: #b0b0b0; -fx-font-size: 12px;");
+
+        cardMaterial.getChildren().addAll(matTitle, matDesc, ejemploMat);
+
+        // Tarjetas de tareas
+        VBox cardTareas = new VBox(12);
+        cardTareas.setPadding(new Insets(16));
+        cardTareas.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-radius: 12; -fx-background-radius: 12;");
+
+        Label tareasTitle = new Label("Tareas");
+        tareasTitle.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 14px; -fx-font-weight: bold;");
+
+        VBox listaTareas = new VBox(10);
+
+        Runnable actualizarListaTareas = () -> {
+            listaTareas.getChildren().clear();
+
+            if (cursoActual.getTareas().isEmpty()) {
+                listaTareas.getChildren().add(emptyLabel("No hay tareas registradas en este curso."));
+                return;
+            }
+
+            for (Tarea tarea : cursoActual.getTareas()) {
+                VBox tareaBox = new VBox(8);
+                tareaBox.setPadding(new Insets(12));
+
+                boolean entregada = tareasEntregadas.contains(tarea);
+
+                if (entregada) {
+                    tareaBox.setStyle("-fx-background-color: #1f2a1f; " +
+                            "-fx-border-color: #4ade80; " +
+                            "-fx-border-width: 2px; " +
+                            "-fx-border-radius: 10; " +
+                            "-fx-background-radius: 10;");
+                } else {
+                    tareaBox.setStyle("-fx-background-color: #252525; " +
+                            "-fx-border-color: #333333; " +
+                            "-fx-border-radius: 10; " +
+                            "-fx-background-radius: 10;");
+                }
+
+                Label tareaNombre = new Label(tarea.getTitulo());
+                tareaNombre.setStyle("-fx-text-fill: #f0f0f0; -fx-font-size: 13px; -fx-font-weight: bold;");
+
+                Label tareaMeta = new Label("Dificultad: " + tarea.getDificultad());
+                tareaMeta.setStyle("-fx-text-fill: #888888; -fx-font-size: 11px;");
+
+                if (entregada) {
+                    Label completadaLbl = new Label("✓ Entregada");
+                    completadaLbl.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px; -fx-font-weight: bold;");
+                    tareaBox.getChildren().addAll(tareaNombre, tareaMeta, completadaLbl);
+                } else {
+                    Label comentariosLbl = new Label("Comentarios");
+                    comentariosLbl.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 12px; -fx-font-weight: bold;");
+
+                    TextArea comentarioArea = new TextArea();
+                    comentarioArea.setPromptText("Escribe un comentario...");
+                    comentarioArea.setWrapText(true);
+                    comentarioArea.setPrefRowCount(3);
+                    comentarioArea.setStyle("-fx-control-inner-background: #1a1a1a; -fx-text-fill: #e0e0e0;");
+
+                    Button comentarBtn = new Button("Publicar comentario");
+                    comentarBtn.setStyle("-fx-background-color: #2f2f2f; -fx-text-fill: #d0d0d0; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #3b3b3b; -fx-cursor: hand;");
+
+                    Label comentarioMsg = new Label();
+                    comentarioMsg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;");
+
+                    comentarBtn.setOnAction(e -> {
+                        if (comentarioArea.getText().isBlank()) {
+                            comentarioMsg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 11px;");
+                            comentarioMsg.setText("Escribe un comentario antes de publicar.");
+                        } else {
+                            comentarioMsg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;");
+                            comentarioMsg.setText("Comentario registrado localmente.");
+                            comentarioArea.clear();
+                        }
+                    });
+
+                    tareaBox.getChildren().addAll(
+                            tareaNombre,
+                            tareaMeta,
+                            comentariosLbl,
+                            comentarioArea,
+                            comentarBtn,
+                            comentarioMsg
+                    );
+                }
+
+                listaTareas.getChildren().add(tareaBox);
+            }
+        };
+
+        actualizarListaTareas.run();
+
+        cardTareas.getChildren().addAll(tareasTitle, listaTareas);
+        izquierda.getChildren().addAll(cardMaterial, cardTareas);
+
+        // Columna derecha
+        VBox derecha = new VBox(14);
+        derecha.setPrefWidth(280);
+
+        VBox cardAlumnos = new VBox(10);
+        cardAlumnos.setPadding(new Insets(16));
+        cardAlumnos.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-radius: 12; -fx-background-radius: 12;");
+
+        Label alumnosTitle = new Label("Lista de estudiantes");
+        alumnosTitle.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 14px; -fx-font-weight: bold;");
+
+        VBox listaAlumnos = new VBox(8);
+        if (cursoActual.getAlumnos().isEmpty()) {
+            listaAlumnos.getChildren().add(emptyLabel("No hay estudiantes inscritos."));
+        } else {
+            for (Alumno a : cursoActual.getAlumnos()) {
+                Label alumnoLbl = new Label("• " + a.getNombre() + " (@" + a.getUsername() + ")");
+                alumnoLbl.setStyle("-fx-text-fill: #bcbcbc; -fx-font-size: 12px;");
+                listaAlumnos.getChildren().add(alumnoLbl);
+            }
+        }
+        cardAlumnos.getChildren().addAll(alumnosTitle, listaAlumnos);
+
+        // Subir tarea
+        VBox cardSubir = new VBox(10);
+        cardSubir.setPadding(new Insets(16));
+        cardSubir.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-radius: 12; -fx-background-radius: 12;");
+
+        Label subirTitle = new Label("Subir tarea");
+        subirTitle.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 14px; -fx-font-weight: bold;");
+
+        TextField nombreAlumnoField = new TextField();
+        nombreAlumnoField.setPromptText("Tu nombre completo");
+
+        ComboBox<Tarea> tareasBox = new ComboBox<>();
+        tareasBox.getItems().addAll(cursoActual.getTareas());
+        tareasBox.setPromptText("Selecciona una tarea");
+        tareasBox.setMaxWidth(Double.MAX_VALUE);
+
+        Button seleccionarArchivoBtn = new Button("Seleccionar PDF");
+        seleccionarArchivoBtn.setMaxWidth(Double.MAX_VALUE);
+        seleccionarArchivoBtn.setStyle("-fx-background-color: #2f2f2f; -fx-text-fill: #d0d0d0; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #3b3b3b; -fx-cursor: hand;");
+
+        Label archivoLbl = new Label("Ningún archivo seleccionado");
+        archivoLbl.setStyle("-fx-text-fill: #777777; -fx-font-size: 11px;");
+
+        final java.io.File[] archivoSel = new java.io.File[1];
+
+        seleccionarArchivoBtn.setOnAction(e -> {
+            javafx.stage.FileChooser fc = new javafx.stage.FileChooser();
+            fc.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("PDF Files", "*.pdf"));
+            java.io.File f = fc.showOpenDialog(stage);
+            if (f != null) {
+                archivoSel[0] = f;
+                archivoLbl.setText("✓ " + f.getName());
+                archivoLbl.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;");
+            }
+        });
+
+        Label subirMsg = new Label();
+        subirMsg.setWrapText(true);
+
+        Button subirBtn = new Button("Entregar tarea");
+        subirBtn.setMaxWidth(Double.MAX_VALUE);
+        subirBtn.setStyle("-fx-background-color: #2563eb; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;");
+
+        subirBtn.setOnAction(e -> {
+            String nombreAlumno = nombreAlumnoField.getText().trim();
+            Tarea tareaSeleccionada = tareasBox.getValue();
+
+            if (nombreAlumno.isBlank()) {
+                subirMsg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 11px;");
+                subirMsg.setText("❌ Por favor ingresa tu nombre.");
+                return;
+            }
+            if (tareaSeleccionada == null) {
+                subirMsg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 11px;");
+                subirMsg.setText("❌ Debes seleccionar una tarea.");
+                return;
+            }
+            if (archivoSel[0] == null) {
+                subirMsg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 11px;");
+                subirMsg.setText("❌ Debes seleccionar un archivo PDF.");
+                return;
+            }
+
+            Alert confirmacion = new Alert(Alert.AlertType.CONFIRMATION);
+            confirmacion.setTitle("Confirmar entrega");
+            confirmacion.setHeaderText("¿Estás seguro de entregar esta tarea?");
+            confirmacion.setContentText("Tarea: " + tareaSeleccionada.getTitulo() + "\nAlumno: " + nombreAlumno);
+
+            confirmacion.showAndWait().ifPresent(respuesta -> {
+                if (respuesta == ButtonType.OK) {
+                    Alumno alumno = new Alumno(
+                            System.identityHashCode(nombreAlumno),
+                            nombreAlumno,
+                            nombreAlumno.toLowerCase().replace(" ", ".")
+                    );
+
+                    repo.gestorEntregas.subirEntrega(alumno, tareaSeleccionada, archivoSel[0]);
+
+                    tareasEntregadas.add(tareaSeleccionada);
+
+                    subirMsg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;");
+                    subirMsg.setText("✅ Tarea entregada correctamente.");
+
+                    actualizarListaTareas.run();
+
+                    nombreAlumnoField.clear();
+                    tareasBox.getSelectionModel().clearSelection();
+                    archivoSel[0] = null;
+                    archivoLbl.setText("Ningún archivo seleccionado");
+                    archivoLbl.setStyle("-fx-text-fill: #777777; -fx-font-size: 11px;");
+                }
+            });
+        });
+
+        cardSubir.getChildren().addAll(
+                subirTitle,
+                nombreAlumnoField,
+                tareasBox,
+                seleccionarArchivoBtn,
+                archivoLbl,
+                subirBtn,
+                subirMsg
+        );
+
+        derecha.getChildren().addAll(cardAlumnos, cardSubir);
+
+        HBox contenidoPrincipal = new HBox(16, izquierda, derecha);
+        VBox.setVgrow(contenidoPrincipal, Priority.ALWAYS);
+
+        contenedor.getChildren().addAll(header, contenidoPrincipal);
+        return contenedor;
+    }
+
+    // ==================== Resto de métodos (sin cambios) ====================
+
     private VBox buildVerTareas(RepositorioController repo) {
         VBox lista = new VBox(10);
         lista.setPadding(new Insets(20));
@@ -360,7 +624,6 @@ public class MainUI {
         return lista;
     }
 
-    // ── CREAR CURSO ────────────────────────────────────────────────────────────
     private VBox buildCrearCurso(Stage stage, RepositorioController repo) {
         Label info = new Label("Crea un nuevo curso para empezar a asignar tareas.");
         info.setStyle("-fx-text-fill: #555555; -fx-font-size: 12px;");
@@ -396,7 +659,6 @@ public class MainUI {
         return wrap;
     }
 
-    // ── ASIGNAR TAREA ──────────────────────────────────────────────────────────
     private VBox buildAsignarTarea(Stage stage, RepositorioController repo) {
         Label lC = fieldLbl("Curso");
         ComboBox<Curso> cursosBox = new ComboBox<>();
@@ -455,7 +717,6 @@ public class MainUI {
         return wrap;
     }
 
-    // ── VER ENTREGAS ───────────────────────────────────────────────────────────
     private VBox buildVerEntregas(RepositorioController repo) {
         Label lC = fieldLbl("Curso");
         ComboBox<Curso> cursosBox = new ComboBox<>();
@@ -508,7 +769,6 @@ public class MainUI {
         return wrap;
     }
 
-    // ── GESTIONAR ALUMNOS ──────────────────────────────────────────────────────
     private VBox buildAlumnos(Stage stage, RepositorioController repo) {
         Label lC = fieldLbl("Curso");
         ComboBox<Curso> cursosBox = new ComboBox<>();
@@ -553,7 +813,6 @@ public class MainUI {
         return wrap;
     }
 
-    // ── MIS TAREAS — HU-05 ─────────────────────────────────────────────────────
     private VBox buildMisTareas(RepositorioController repo) {
         java.util.List<Tarea> tareas = new java.util.ArrayList<>();
         for (Curso c : repo.gestorCurso.listarCursos()) tareas.addAll(c.getTareas());
@@ -604,7 +863,6 @@ public class MainUI {
         return content;
     }
 
-    // ── ENTREGAR TAREA ─────────────────────────────────────────────────────────
     private VBox buildEntregar(Stage stage, RepositorioController repo) {
         Label lNombre = fieldLbl("Tu nombre");
         TextField nombreField = new TextField();
@@ -688,7 +946,6 @@ public class MainUI {
         return wrap;
     }
 
-    // ── HELPERS ────────────────────────────────────────────────────────────────
     private void refresh(Stage stage, RepositorioController repo) {
         stage.setScene(buildScene(stage, repo));
     }
