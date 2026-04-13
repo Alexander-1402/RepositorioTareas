@@ -131,11 +131,13 @@ public class MainUI {
                 Button btnAsignar    = navBtn("📋  Asignar Tarea",    vistaActual.equals("asignarTarea"));
                 Button btnEntregas   = navBtn("↓  Ver Entregas",      vistaActual.equals("verEntregas"));
                 Button btnAlumnos    = navBtn("◎  Gestionar Alumnos", vistaActual.equals("alumnos"));
+                Button btnVincular   = navBtn("🔗  Vincular Recurso",    vistaActual.equals("vincularRecurso"));
+                btnVincular.setOnAction(e -> { vistaActual = "vincularRecurso"; refresh(stage, repo); });
                 btnCrearCurso.setOnAction(e -> { vistaActual = "crearCurso";   refresh(stage, repo); });
                 btnAsignar.setOnAction(e    -> { vistaActual = "asignarTarea"; refresh(stage, repo); });
                 btnEntregas.setOnAction(e   -> { vistaActual = "verEntregas";  refresh(stage, repo); });
                 btnAlumnos.setOnAction(e    -> { vistaActual = "alumnos";      refresh(stage, repo); });
-                secRol.getChildren().addAll(btnCrearCurso, btnAsignar, btnEntregas, btnAlumnos);
+                secRol.getChildren().addAll(btnCrearCurso, btnAsignar, btnEntregas, btnVincular, btnAlumnos);
             } else {
                 Button btnMisTareas = navBtn("✦  Mis Tareas",     vistaActual.equals("misTareas"));
                 Button btnEntregar  = navBtn("↑  Entregar Tarea", vistaActual.equals("entregar"));
@@ -221,6 +223,7 @@ public class MainUI {
             case "misTareas"    -> buildMisTareas(repo);
             case "entregar"     -> buildEntregar(stage, repo);
             case "mensajes"     -> buildVistaMensajes(stage, repo); // se añadio vista mensajes HU-03 - KATERINE
+            case "vincularRecurso" -> buildVincularRecurso(repo, stage);
             default             -> buildInicio(stage, repo);
         };
     }
@@ -293,6 +296,66 @@ public class MainUI {
         if (!hayTareas) lista.getChildren().add(emptyLabel("No hay tareas creadas aún."));
         lista.setStyle("-fx-background-color: #111111;");
         return lista;
+    }
+
+    // ── VINCULAR RECURSO (docente) ────────────────────────────────────────────
+    private VBox buildVincularRecurso(RepositorioController repo, Stage stage) {
+        Label info = new Label("Vincula material de apoyo (Videos, PDFs o Enlaces) a tus cursos mediante URLs.");
+        info.setStyle("-fx-text-fill: #888888; -fx-font-size: 12px;");
+
+        Label lC = fieldLbl("Curso");
+        ComboBox<Curso> cursosBox = new ComboBox<>();
+        cursosBox.getItems().addAll(repo.gestorCurso.listarCursos());
+        cursosBox.setPromptText("Selecciona un curso");
+        cursosBox.setMaxWidth(Double.MAX_VALUE);
+
+        Label lT = fieldLbl("Título del recurso");
+        TextField tituloField = new TextField();
+        tituloField.setPromptText("Ej: Guía de estudio PDF");
+        tituloField.setMaxWidth(Double.MAX_VALUE);
+
+        Label lTipo = fieldLbl("Tipo de recurso");
+        ComboBox<Recurso.TipoRecurso> tipoBox = new ComboBox<>();
+        tipoBox.getItems().addAll(Recurso.TipoRecurso.values());
+        tipoBox.setPromptText("Selecciona el tipo");
+        tipoBox.setMaxWidth(Double.MAX_VALUE);
+
+        Label lUrl = fieldLbl("Enlace / URL");
+        TextField urlField = new TextField();
+        urlField.setPromptText("https://mi-enlace.com/archivo.pdf o youtube.com/...");
+        urlField.setMaxWidth(Double.MAX_VALUE);
+
+        Label msg = new Label();
+        Button vincularBtn = new Button("Vincular Recurso →");
+        vincularBtn.setMaxWidth(Double.MAX_VALUE);
+        vincularBtn.setPrefHeight(42);
+
+        vincularBtn.setOnAction(e -> {
+            Curso c = cursosBox.getValue();
+            String tit = tituloField.getText().trim();
+            Recurso.TipoRecurso tipo = tipoBox.getValue();
+            String url = urlField.getText().trim();
+
+            if (c == null || tit.isEmpty() || tipo == null || url.isEmpty()) {
+                msg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;");
+                msg.setText("⚠ Completa todos los campos");
+                return;
+            }
+            repo.recursosController.agregarRecurso(c, tit, tipo, url);
+            msg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;");
+            msg.setText("✓ Recurso vinculado correctamente");
+            tituloField.clear();
+            urlField.clear();
+        });
+        VBox card = new VBox(12, info, lC, cursosBox, lT, tituloField, lTipo, tipoBox, lUrl, urlField, msg, vincularBtn);
+        card.setPadding(new Insets(20));
+        card.setMaxWidth(420);
+        card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
+
+        VBox wrap = new VBox(card);
+        wrap.setPadding(new Insets(20));
+        wrap.setStyle("-fx-background-color: #111111;");
+        return wrap;
     }
 
     // ── CREAR CURSO ────────────────────────────────────────────────────────────

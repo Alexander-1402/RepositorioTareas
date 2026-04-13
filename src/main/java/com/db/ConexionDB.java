@@ -79,6 +79,17 @@ public class ConexionDB {
             );
         """;
 
+        String sqlRecursos = """
+            CREATE TABLE IF NOT EXISTS recursos (
+                id          INT AUTO_INCREMENT PRIMARY KEY,
+                titulo      VARCHAR(200) NOT NULL,
+                tipo        ENUM('VIDEO', 'ARTICULO', 'REPOSITORIO', 'PDF') NOT NULL,
+                enlace      VARCHAR(500) NOT NULL, -- Se vuelve obligatorio ya que no hay ruta física
+                curso_id    INT NOT NULL,
+                FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE
+                );
+         """;
+
         String sqlMensajes = """
             CREATE TABLE IF NOT EXISTS mensajes (
                 id         INT AUTO_INCREMENT PRIMARY KEY,
@@ -98,6 +109,7 @@ public class ConexionDB {
             stmt.execute(sqlAlumnos);
             stmt.execute(sqlAlumnoCurso);
             stmt.execute(sqlEntregas);
+            stmt.execute(sqlRecursos);
             stmt.execute(sqlMensajes);
             System.out.println("✓ Tablas verificadas/creadas correctamente");
         } catch (SQLException e) {

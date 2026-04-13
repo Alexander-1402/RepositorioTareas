@@ -11,6 +11,7 @@ public class Curso {
 
     private List<Alumno> alumnos = new ArrayList<>();
     private List<Tarea> tareas   = new ArrayList<>();
+    private List<Recurso> recursos = new ArrayList<>();
 
     public Curso(String nombre, Profesor profesor, String codigo) {
         this.nombre   = nombre;
@@ -18,8 +19,9 @@ public class Curso {
         this.codigo   = codigo;
     }
 
-    public void agregarAlumno(Alumno a) { alumnos.add(a); }
-    public void agregarTarea(Tarea t)   { tareas.add(t); }
+    public void agregarAlumno(Alumno a)   { alumnos.add(a);  }
+    public void agregarTarea(Tarea t)     { tareas.add(t);   }
+    public void agregarRecurso(Recurso r) { recursos.add(r); }
 
     public int getId()              { return id; }
     public void setId(int id)       { this.id = id; }
@@ -27,6 +29,7 @@ public class Curso {
     public String getCodigo()       { return codigo; }
     public List<Alumno> getAlumnos(){ return alumnos; }
     public List<Tarea> getTareas()  { return tareas; }
+    public List<Recurso> getRecursos() { return recursos; }
 
     @Override
     public String toString() { return nombre + " (" + codigo + ")"; }

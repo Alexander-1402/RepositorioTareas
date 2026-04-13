@@ -7,6 +7,7 @@ public class RepositorioController {
     public GestorEntregas gestorEntregas;
     public TareasController tareasController;
     public GestorMensajes gestorMensajes;
+    public RecursosController recursosController;
 
     public RepositorioController() {
         gestorUsuarios = new GestorUsuarios();
@@ -14,5 +15,6 @@ public class RepositorioController {
         gestorEntregas = new GestorEntregas();
         tareasController = new TareasController();
         gestorMensajes = new GestorMensajes();
+        recursosController = new RecursosController();
     }
 }
