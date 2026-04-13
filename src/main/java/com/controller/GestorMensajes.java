@@ -10,16 +10,9 @@ import java.util.List;
 
 public class GestorMensajes {
 
-    // HU-03: El alumno debe estar inscrito en el curso para poder enviar - KATERINE
+    // HU-03: El estudiante puede comunicarse con el docente - KATERINE
     public Mensaje enviarMensaje(Alumno alumno, int cursoId, String contenido) {
-        // Verificar que el alumno este inscrito en el curso - KATERINE
-        List<Curso> cursosDelAlumno = CursoDAO.obtenerCursosDeAlumno(alumno.getId());
-        boolean inscrito = cursosDelAlumno.stream().anyMatch(c -> c.getId() == cursoId);
-
-        if (!inscrito) {
-            System.err.println("El alumno no está inscrito en este curso.");//
-            return null;
-        }
+        // se quito verificacion de inscripcion ya que no hay login real en el sistema - KATERINE
         if (contenido == null || contenido.isBlank()) {
             System.err.println("El mensaje no puede estar vacío.");
             return null;

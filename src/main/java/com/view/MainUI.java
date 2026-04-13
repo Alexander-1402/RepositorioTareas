@@ -143,7 +143,11 @@ public class MainUI {
                 btnMisTareas.setOnAction(e -> { vistaActual = "misTareas"; refresh(stage, repo); });
                 btnEntregar.setOnAction(e  -> { vistaActual = "entregar";  refresh(stage, repo); });
                 btnUnirse.setOnAction(e    -> { accionUnirse(repo, stage); });
-                secRol.getChildren().addAll(btnMisTareas, btnEntregar, btnUnirse);
+                // se creo el boton Contactar Docente para HU-03 - KATERINE
+                Button btnMensajes = navBtn("✉  Contactar Docente", vistaActual.equals("mensajes"));
+                btnMensajes.setOnAction(e -> { vistaActual = "mensajes"; refresh(stage, repo); });
+                // se añadio btnMensajes al sidebar del estudiante - KATERINE
+                secRol.getChildren().addAll(btnMisTareas, btnEntregar, btnUnirse, btnMensajes);
             }
         } else {
             Label ph = new Label("Selecciona un rol para\nver más opciones");
@@ -183,6 +187,7 @@ public class MainUI {
             case "alumnos"      -> "Gestionar Alumnos";
             case "misTareas"    -> "Mis Tareas Pendientes";
             case "entregar"     -> "Entregar Tarea";
+            case "mensajes"     -> "Contactar Docente"; // se añadio titulo para HU-03 - KATERINE
             default             -> "Bienvenido a TaskRepo";
         };
 
@@ -215,6 +220,7 @@ public class MainUI {
             case "alumnos"      -> buildAlumnos(stage, repo);
             case "misTareas"    -> buildMisTareas(repo);
             case "entregar"     -> buildEntregar(stage, repo);
+            case "mensajes"     -> buildVistaMensajes(stage, repo); // se añadio vista mensajes HU-03 - KATERINE
             default             -> buildInicio(stage, repo);
         };
     }
@@ -615,6 +621,102 @@ public class MainUI {
         wrap.setPadding(new Insets(20));
         wrap.setStyle("-fx-background-color: #111111;");
         return wrap;
+    }
+
+    // ── CONTACTAR DOCENTE — HU-03 (estudiante) — metodo creado por KATERINE ──────
+    private VBox buildVistaMensajes(Stage stage, RepositorioController repo) {
+        VBox box = new VBox(16);
+        box.setPadding(new Insets(24));
+        box.setStyle("-fx-background-color: #111111;");
+
+        // se añadio campo nombre para identificar al alumno - KATERINE
+        Label lNombre = new Label("Tu nombre:");
+        lNombre.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 12px;");
+        TextField nombreField = new TextField();
+        nombreField.setPromptText("Ej: Juan Pérez");
+        nombreField.setMaxWidth(420);
+
+        // se añadio selector de curso - KATERINE
+        Label lblCurso = new Label("Selecciona el curso:");
+        lblCurso.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 12px;");
+        ComboBox<Curso> comboCurso = new ComboBox<>();
+        comboCurso.getItems().addAll(repo.gestorCurso.listarCursos());
+        comboCurso.setPromptText("Elige un curso...");
+        comboCurso.setMaxWidth(420);
+
+        // se añadio campo de texto para el mensaje - KATERINE
+        Label lblMsg = new Label("Escribe tu mensaje:");
+        lblMsg.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 12px;");
+        TextArea campoMensaje = new TextArea();
+        campoMensaje.setPromptText("Escribe aquí tu consulta al docente...");
+        campoMensaje.setPrefRowCount(4);
+        campoMensaje.setWrapText(true);
+        campoMensaje.setMaxWidth(420);
+
+        // se añadio boton enviar - KATERINE
+        Button btnEnviar = new Button("Enviar mensaje →");
+        btnEnviar.setPrefHeight(42);
+        btnEnviar.setMaxWidth(420);
+        btnEnviar.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e0e0e0; -fx-border-color: #3a3a3a; -fx-border-radius: 6; -fx-background-radius: 6; -fx-cursor: hand;");
+
+        Label lblStatus = new Label("");
+        lblStatus.setStyle("-fx-font-size: 12px;");
+
+        // se añadio historial de mensajes - KATERINE
+        Label lblHistorial = new Label("Mensajes en este curso:");
+        lblHistorial.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 12px;");
+        VBox historial = new VBox(8);
+
+        comboCurso.setOnAction(e -> {
+            historial.getChildren().clear();
+            Curso c = comboCurso.getValue();
+            if (c == null) return;
+            List<com.model.Mensaje> msgs = repo.gestorMensajes.obtenerMensajesDeCurso(c.getId());
+            if (msgs.isEmpty()) {
+                Label empty = new Label("Sin mensajes aún.");
+                empty.setStyle("-fx-text-fill: #444444; -fx-font-size: 12px;");
+                historial.getChildren().add(empty);
+            } else {
+                String nombreEscrito = nombreField.getText().trim();
+                for (com.model.Mensaje m : msgs) {
+                    Alumno remitente = com.db.AlumnoDAO.buscarPorId(m.getAlumnoId());
+                    String nombreRemitente = (remitente != null) ? remitente.getNombre() : "Alumno";
+                    String prefijo = nombreRemitente.equalsIgnoreCase(nombreEscrito) ? "Tú" : nombreRemitente;
+                    Label lm = new Label(prefijo + ": " + m.getContenido() + "\n" + m.getFecha());
+                    lm.setStyle("-fx-text-fill: #888; -fx-font-size: 11px; -fx-padding: 6 10; -fx-background-color: #1e1e1e; -fx-background-radius: 6;");
+                    lm.setWrapText(true);
+                    lm.setMaxWidth(420);
+                    historial.getChildren().add(lm);
+                }
+            }
+        });
+
+        // se añadio logica del boton enviar - KATERINE
+        // se quito verificacion de inscripcion ya que no hay login real - KATERINE
+        btnEnviar.setOnAction(e -> {
+            Curso c = comboCurso.getValue();
+            if (c == null) { lblStatus.setText("Selecciona un curso."); lblStatus.setStyle("-fx-text-fill: orange; -fx-font-size: 12px;"); return; }
+            String txt = campoMensaje.getText().trim();
+            if (txt.isEmpty()) { lblStatus.setText("El mensaje no puede estar vacío."); lblStatus.setStyle("-fx-text-fill: orange; -fx-font-size: 12px;"); return; }
+            String nombre = nombreField.getText().trim();
+            if (nombre.isEmpty()) { lblStatus.setText("Ingresa tu nombre."); lblStatus.setStyle("-fx-text-fill: orange; -fx-font-size: 12px;"); return; }
+            // se agrego estas 2 lineas para obtener o crear el alumno - KATERINE
+            Alumno alumno = com.db.AlumnoDAO.registrarORecuperar(nombre, nombre.toLowerCase().replace(" ", "."));
+            com.model.Mensaje m = repo.gestorMensajes.enviarMensaje(alumno, c.getId(), txt);
+            if (m != null) {
+                // se cambio mensaje a confirmacion positiva - KATERINE
+                lblStatus.setText("✓ Mensaje enviado correctamente.");
+                lblStatus.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;");
+                campoMensaje.clear();
+                comboCurso.fireEvent(new javafx.event.ActionEvent());
+            } else {
+                lblStatus.setText("No se pudo enviar el mensaje, intenta de nuevo.");
+                lblStatus.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;");
+            }
+        });
+
+        box.getChildren().addAll(lNombre, nombreField, lblCurso, comboCurso, lblMsg, campoMensaje, btnEnviar, lblStatus, lblHistorial, historial);
+        return box;
     }
 
     // ── HELPERS ────────────────────────────────────────────────────────────────
