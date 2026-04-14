@@ -573,97 +573,117 @@ private VBox buildVerTareas(RepositorioController repo) {
     }
 
     // ── VER ENTREGAS ───────────────────────────────────────────────────────────
-    // ── VER ENTREGAS ───────────────────────────────────────────────────────────
-    private VBox buildVerEntregas(RepositorioController repo) {
-        Label lC = fieldLbl("Curso");
-        ComboBox<Curso> cursosBox = new ComboBox<>();
-        cursosBox.getItems().addAll(repo.gestorCurso.listarCursos());
-        cursosBox.setPromptText("Selecciona un curso");
-        cursosBox.setMaxWidth(Double.MAX_VALUE);
+private VBox buildVerEntregas(RepositorioController repo) {
 
-        Label lT = fieldLbl("Tarea");
-        ComboBox<Tarea> tareasBox = new ComboBox<>();
-        tareasBox.setPromptText("Selecciona una tarea");
-        tareasBox.setMaxWidth(Double.MAX_VALUE);
-        cursosBox.setOnAction(e -> {
-            Curso c = cursosBox.getValue();
-            if (c != null) { tareasBox.getItems().clear(); tareasBox.getItems().addAll(c.getTareas()); }
-        });
+    Label lC = fieldLbl("Curso");
+    ComboBox<Curso> cursosBox = new ComboBox<>();
+    cursosBox.getItems().addAll(repo.gestorCurso.listarCursos());
+    cursosBox.setPromptText("Selecciona un curso");
+    cursosBox.setMaxWidth(Double.MAX_VALUE);
 
-        VBox listaEntregas = new VBox(8);
-        Button verBtn = new Button("Ver Entregas");
-        verBtn.setMaxWidth(Double.MAX_VALUE);
-        verBtn.setPrefHeight(42);
-        verBtn.setOnAction(e -> {
-            listaEntregas.getChildren().clear();
-            Tarea t = tareasBox.getValue();
-            if (t == null) return;
-            List<Entrega> entregas = repo.gestorEntregas.obtenerPorTarea(t);
-            if (entregas.isEmpty()) {
-                listaEntregas.getChildren().add(emptyLabel("Sin entregas para esta tarea."));
-            } else {
-              for (Entrega en : entregas) {
+    Label lT = fieldLbl("Tarea");
+    ComboBox<Tarea> tareasBox = new ComboBox<>();
+    tareasBox.setPromptText("Selecciona una tarea");
+    tareasBox.setMaxWidth(Double.MAX_VALUE);
 
-    Label alumnoLbl = new Label(en.getAlumno().getNombre());
-    alumnoLbl.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 13px; -fx-font-weight: bold;");
-
-    Label archivoLbl = new Label("↳ " + en.getArchivo().getName());
-    archivoLbl.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px;");
-
-  
-    TextField notaField = new TextField();
-    notaField.setPromptText("Nota (1-100)");
-    notaField.setMaxWidth(80);
-
-    
-    TextField comentarioField = new TextField();
-    comentarioField.setPromptText("Comentario...");
-    comentarioField.setMaxWidth(Double.MAX_VALUE);
-
-   
-    Button descargarBtn = new Button("Descargar");
-    descargarBtn.getStyleClass().add("button-ghost");
-    descargarBtn.setOnAction(ev -> {
-        try {
-            java.awt.Desktop.getDesktop().open(en.getArchivo());
-        } catch (Exception ex) {
-            ex.printStackTrace();
+    cursosBox.setOnAction(e -> {
+        Curso c = cursosBox.getValue();
+        if (c != null) {
+            tareasBox.getItems().clear();
+            tareasBox.getItems().addAll(c.getTareas());
         }
     });
 
-    
-    Button guardarBtn = new Button("Guardar");
-    guardarBtn.setOnAction(ev -> {
-        try {
-            int nota = Integer.parseInt(notaField.getText());
+    VBox listaEntregas = new VBox(8);
 
-            if (nota < 1 || nota > 100) {
-                System.out.println("Nota inválida");
-                return;
-            }
+    Button verBtn = new Button("Ver Entregas");
+    verBtn.setMaxWidth(Double.MAX_VALUE);
+    verBtn.setPrefHeight(42);
 
-            String comentario = comentarioField.getText();
+    verBtn.setOnAction(e -> {
 
-           
-            System.out.println("Alumno: " + en.getAlumno().getNombre());
-            System.out.println("Nota: " + nota);
-            System.out.println("Comentario: " + comentario);
+        listaEntregas.getChildren().clear();
 
-        } catch (NumberFormatException ex) {
-            System.out.println("Ingresa un número válido");
+        Tarea t = tareasBox.getValue();
+        if (t == null) return;
+
+        List<Entrega> entregas = repo.gestorEntregas.obtenerPorTarea(t);
+
+        if (entregas.isEmpty()) {
+            listaEntregas.getChildren().add(emptyLabel("Sin entregas para esta tarea."));
+            return;
+        }
+
+        for (Entrega en : entregas) {
+
+            Label alumnoLbl = new Label(en.getAlumno().getNombre());
+            alumnoLbl.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 13px; -fx-font-weight: bold;");
+
+            Label archivoLbl = new Label("↳ " + en.getArchivo().getName());
+            archivoLbl.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px;");
+
+            TextField notaField = new TextField();
+            notaField.setPromptText("Nota (1-100)");
+            notaField.setMaxWidth(80);
+
+            TextField comentarioField = new TextField();
+            comentarioField.setPromptText("Comentario...");
+            comentarioField.setMaxWidth(Double.MAX_VALUE);
+
+            Button descargarBtn = new Button("Descargar");
+            descargarBtn.getStyleClass().add("button-ghost");
+            descargarBtn.setOnAction(ev -> {
+                try {
+                    java.awt.Desktop.getDesktop().open(en.getArchivo());
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            });
+
+            Button guardarBtn = new Button("Guardar");
+            guardarBtn.setOnAction(ev -> {
+                try {
+                    int nota = Integer.parseInt(notaField.getText());
+
+                    if (nota < 1 || nota > 100) {
+                        System.out.println("Nota inválida");
+                        return;
+                    }
+
+                    String comentario = comentarioField.getText();
+
+                
+                    System.out.println("Alumno: " + en.getAlumno().getNombre());
+                    System.out.println("Nota: " + nota);
+                    System.out.println("Comentario: " + comentario);
+
+                } catch (NumberFormatException ex) {
+                    System.out.println("Ingresa un número válido");
+                }
+            });
+
+            HBox controles = new HBox(10, notaField, comentarioField, guardarBtn, descargarBtn);
+
+            VBox contenido = new VBox(5, alumnoLbl, archivoLbl, controles);
+
+            HBox row = new HBox(contenido);
+            row.setPadding(new Insets(10, 14, 10, 14));
+            row.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10;");
+
+            listaEntregas.getChildren().add(row);
         }
     });
 
-    
-    HBox controles = new HBox(10, notaField, comentarioField, guardarBtn, descargarBtn);
+    VBox card = new VBox(12, lC, cursosBox, lT, tareasBox, verBtn, listaEntregas);
+    card.setPadding(new Insets(20));
+    card.setMaxWidth(460);
+    card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-radius: 14; -fx-background-radius: 14;");
 
-    VBox contenido = new VBox(5, alumnoLbl, archivoLbl, controles);
+    VBox wrap = new VBox(card);
+    wrap.setPadding(new Insets(20));
+    wrap.setStyle("-fx-background-color: #111111;");
 
-    HBox row = new HBox(contenido);
-    row.setPadding(new Insets(10, 14, 10, 14));
-    row.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10;");
-
-    listaEntregas.getChildren().add(row);
+    return wrap;
 }
 
     // ── GESTIONAR ALUMNOS ──────────────────────────────────────────────────────
