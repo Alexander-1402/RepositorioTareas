@@ -10,7 +10,7 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.stage.Stage;
-import com.EntregaJSON;
+
 import com.controller.GestorIA;
 import com.controller.RepositorioController;
 import com.model.*;
@@ -21,7 +21,7 @@ public class MainUI {
 
     private String rolActual   = null;
     private String vistaActual = "inicio";
-    private Curso cursoSeleccionado = null;
+    private Curso cursoActual  = null;
 
     public MainUI(Stage stage, RepositorioController repo) {
         stage.setScene(buildScene(stage, repo));
@@ -35,24 +35,17 @@ public class MainUI {
         VBox sidebar  = buildSidebar(stage, repo);
         HBox topbar   = buildTopbar(stage, repo);
 
-        // Contenedor principal que empieza con spinner
         StackPane contenedorPrincipal = new StackPane();
         contenedorPrincipal.setStyle("-fx-background-color: #111111;");
+        contenedorPrincipal.getChildren().add(buildSpinner());
 
-        // Mostrar spinner mientras carga
-        VBox spinner = buildSpinner();
-        contenedorPrincipal.getChildren().add(spinner);
-
-        // Cargar contenido en hilo secundario
         Task<VBox> tarea = new Task<>() {
             @Override
             protected VBox call() {
-                // Esto corre en segundo plano — consultas a BD aquí
                 return buildContenido(stage, repo);
             }
         };
 
-        // Cuando termina, actualizar UI en hilo principal
         tarea.setOnSucceeded(e -> {
             VBox contenido = tarea.getValue();
             ScrollPane scroll = new ScrollPane(contenido);
@@ -69,7 +62,6 @@ public class MainUI {
             contenedorPrincipal.getChildren().add(error);
         });
 
-        // Arrancar el hilo secundario
         new Thread(tarea).start();
 
         VBox mainArea = new VBox(topbar, contenedorPrincipal);
@@ -84,16 +76,13 @@ public class MainUI {
         return scene;
     }
 
-    // ── SPINNER DE CARGA ───────────────────────────────────────────────────────
+    // ── SPINNER ────────────────────────────────────────────────────────────────
     private VBox buildSpinner() {
         Label cargando = new Label("Cargando...");
         cargando.setStyle("-fx-text-fill: #555555; -fx-font-size: 13px;");
-
-        // Círculo animado simple
         ProgressIndicator pi = new ProgressIndicator();
         pi.setStyle("-fx-progress-color: #666666;");
         pi.setPrefSize(36, 36);
-
         VBox box = new VBox(12, pi, cargando);
         box.setAlignment(Pos.CENTER);
         box.setStyle("-fx-background-color: #111111;");
@@ -132,24 +121,21 @@ public class MainUI {
                 Button btnAsignar    = navBtn("📋  Asignar Tarea",    vistaActual.equals("asignarTarea"));
                 Button btnEntregas   = navBtn("↓  Ver Entregas",      vistaActual.equals("verEntregas"));
                 Button btnAlumnos    = navBtn("◎  Gestionar Alumnos", vistaActual.equals("alumnos"));
-                Button btnVincular   = navBtn("🔗  Vincular Recurso",    vistaActual.equals("vincularRecurso"));
-                btnVincular.setOnAction(e -> { vistaActual = "vincularRecurso"; refresh(stage, repo); });
                 btnCrearCurso.setOnAction(e -> { vistaActual = "crearCurso";   refresh(stage, repo); });
                 btnAsignar.setOnAction(e    -> { vistaActual = "asignarTarea"; refresh(stage, repo); });
                 btnEntregas.setOnAction(e   -> { vistaActual = "verEntregas";  refresh(stage, repo); });
                 btnAlumnos.setOnAction(e    -> { vistaActual = "alumnos";      refresh(stage, repo); });
-                secRol.getChildren().addAll(btnCrearCurso, btnAsignar, btnEntregas, btnVincular, btnAlumnos);
+                secRol.getChildren().addAll(btnCrearCurso, btnAsignar, btnEntregas, btnAlumnos);
             } else {
-                Button btnMisTareas = navBtn("✦  Mis Tareas",     vistaActual.equals("misTareas"));
-                Button btnEntregar  = navBtn("↑  Entregar Tarea", vistaActual.equals("entregar"));
-                Button btnUnirse    = navBtn("＋  Unirse a Clase", false);
+                Button btnMisTareas = navBtn("✦  Mis Tareas",          vistaActual.equals("misTareas"));
+                Button btnEntregar  = navBtn("↑  Entregar Tarea",      vistaActual.equals("entregar"));
+                Button btnUnirse    = navBtn("＋  Unirse a Clase",     false);
+                // HU-03 - KATERINE: boton contactar docente
+                Button btnMensajes  = navBtn("✉  Contactar Docente",   vistaActual.equals("mensajes"));
                 btnMisTareas.setOnAction(e -> { vistaActual = "misTareas"; refresh(stage, repo); });
                 btnEntregar.setOnAction(e  -> { vistaActual = "entregar";  refresh(stage, repo); });
                 btnUnirse.setOnAction(e    -> { accionUnirse(repo, stage); });
-                // se creo el boton Contactar Docente para HU-03 - KATERINE
-                Button btnMensajes = navBtn("✉  Contactar Docente", vistaActual.equals("mensajes"));
-                btnMensajes.setOnAction(e -> { vistaActual = "mensajes"; refresh(stage, repo); });
-                // se añadio btnMensajes al sidebar del estudiante - KATERINE
+                btnMensajes.setOnAction(e  -> { vistaActual = "mensajes";  refresh(stage, repo); });
                 secRol.getChildren().addAll(btnMisTareas, btnEntregar, btnUnirse, btnMensajes);
             }
         } else {
@@ -190,7 +176,8 @@ public class MainUI {
             case "alumnos"      -> "Gestionar Alumnos";
             case "misTareas"    -> "Mis Tareas Pendientes";
             case "entregar"     -> "Entregar Tarea";
-            case "mensajes"     -> "Contactar Docente"; // se añadio titulo para HU-03 - KATERINE
+            case "mensajes"     -> "Contactar Docente";
+            case "detalleCurso" -> cursoActual != null ? "Curso: " + cursoActual.getNombre() : "Detalle del Curso";
             default             -> "Bienvenido a TaskRepo";
         };
 
@@ -212,10 +199,10 @@ public class MainUI {
         return topbar;
     }
 
-    // ── CONTENIDO — corre en hilo secundario ───────────────────────────────────
+    // ── CONTENIDO ──────────────────────────────────────────────────────────────
     private VBox buildContenido(Stage stage, RepositorioController repo) {
         return switch (vistaActual) {
-            case "verCursos"    -> buildVerCursos(repo);
+            case "verCursos"    -> buildVerCursos(stage, repo);
             case "verTareas"    -> buildVerTareas(repo);
             case "crearCurso"   -> buildCrearCurso(stage, repo);
             case "asignarTarea" -> buildAsignarTarea(stage, repo);
@@ -223,9 +210,8 @@ public class MainUI {
             case "alumnos"      -> buildAlumnos(stage, repo);
             case "misTareas"    -> buildMisTareas(repo);
             case "entregar"     -> buildEntregar(stage, repo);
-            case "mensajes"     -> buildVistaMensajes(stage, repo); // se añadio vista mensajes HU-03 - KATERINE
-            case "vincularRecurso" -> buildVincularRecurso(repo, stage);
-            case "detalleCurso" -> buildDetalleCurso(repo);
+            case "mensajes"     -> buildVistaMensajes(stage, repo);
+            case "detalleCurso" -> buildDetalleCurso(stage, repo);
             default             -> buildInicio(stage, repo);
         };
     }
@@ -252,7 +238,7 @@ public class MainUI {
     }
 
     // ── VER CURSOS ─────────────────────────────────────────────────────────────
-    private VBox buildVerCursos(RepositorioController repo) {
+    private VBox buildVerCursos(Stage stage, RepositorioController repo) {
         VBox lista = new VBox(10);
         lista.setPadding(new Insets(20));
         List<Curso> cursos = repo.gestorCurso.listarCursos();
@@ -270,15 +256,10 @@ public class MainUI {
                 HBox card = new HBox(12, new VBox(3, nombre, meta), sp, badge);
                 card.setAlignment(Pos.CENTER_LEFT);
                 card.setPadding(new Insets(13, 16, 13, 16));
-                card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10;");
-                card.setOnMouseClicked(e -> {
-                    cursoSeleccionado = c;
-                    vistaActual = "detalleCurso";
-
-                    // Obtenemos el stage desde la ventana donde se hizo clic
-                    Stage currentStage = (Stage) card.getScene().getWindow();
-                    refresh(currentStage, repo);
-                });
+                card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10; -fx-cursor: hand;");
+                card.setOnMouseEntered(e -> card.setStyle("-fx-background-color: #252525; -fx-border-color: #444444; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10; -fx-cursor: hand;"));
+                card.setOnMouseExited(e  -> card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10; -fx-cursor: hand;"));
+                card.setOnMouseClicked(e -> pedirCodigoAcceso(stage, c, repo));
                 lista.getChildren().add(card);
             }
         }
@@ -286,690 +267,369 @@ public class MainUI {
         return lista;
     }
 
+    // ── PEDIR CÓDIGO DE ACCESO ─────────────────────────────────────────────────
+    private void pedirCodigoAcceso(Stage stage, Curso curso, RepositorioController repo) {
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.setTitle("Acceso al curso");
+        dialog.setHeaderText("Ingrese el código de acceso para entrar a " + curso.getNombre());
+        dialog.setContentText("Código:");
+        dialog.showAndWait().ifPresent(codigoIngresado -> {
+            if (codigoIngresado.equalsIgnoreCase(curso.getCodigo())) {
+                cursoActual = curso;
+                vistaActual = "detalleCurso";
+                refresh(stage, repo);
+            } else {
+                Alert error = new Alert(Alert.AlertType.ERROR);
+                error.setTitle("Código incorrecto");
+                error.setHeaderText(null);
+                error.setContentText("El código de acceso no es correcto.");
+                error.showAndWait();
+            }
+        });
+    }
+
+    // ── DETALLE DEL CURSO ──────────────────────────────────────────────────────
+    private VBox buildDetalleCurso(Stage stage, RepositorioController repo) {
+        VBox contenedor = new VBox(16);
+        contenedor.setPadding(new Insets(20));
+        contenedor.setStyle("-fx-background-color: #111111;");
+
+        if (cursoActual == null) {
+            contenedor.getChildren().add(emptyLabel("No hay curso seleccionado."));
+            return contenedor;
+        }
+
+        Label titulo = new Label(cursoActual.getNombre());
+        titulo.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 18px; -fx-font-weight: bold;");
+        Label subtitulo = new Label("Código del curso: " + cursoActual.getCodigo());
+        subtitulo.setStyle("-fx-text-fill: #666666; -fx-font-size: 12px;");
+        Button volverBtn = new Button("← Volver a cursos");
+        volverBtn.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #d0d0d0; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #3a3a3a; -fx-cursor: hand;");
+        volverBtn.setOnAction(e -> { vistaActual = "verCursos"; cursoActual = null; refresh(stage, repo); });
+        VBox header = new VBox(6, titulo, subtitulo, volverBtn);
+
+        final java.util.Set<Tarea> tareasEntregadas = new java.util.HashSet<>();
+
+        VBox izquierda = new VBox(14);
+        izquierda.setPrefWidth(500);
+
+        VBox cardMaterial = new VBox(10);
+        cardMaterial.setPadding(new Insets(16));
+        cardMaterial.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-radius: 12; -fx-background-radius: 12;");
+        Label matTitle = new Label("Material del docente");
+        matTitle.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 14px; -fx-font-weight: bold;");
+        Label matDesc = new Label("Aquí se mostrará el material, documentos o publicaciones del curso.");
+        matDesc.setWrapText(true); matDesc.setStyle("-fx-text-fill: #777777; -fx-font-size: 12px;");
+        Label ejemploMat = new Label("• Documento guía del curso\n• Material de apoyo\n• Publicaciones del docente");
+        ejemploMat.setStyle("-fx-text-fill: #b0b0b0; -fx-font-size: 12px;");
+        cardMaterial.getChildren().addAll(matTitle, matDesc, ejemploMat);
+
+        VBox cardTareas = new VBox(12);
+        cardTareas.setPadding(new Insets(16));
+        cardTareas.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-radius: 12; -fx-background-radius: 12;");
+        Label tareasTitle = new Label("Tareas");
+        tareasTitle.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 14px; -fx-font-weight: bold;");
+        VBox listaTareas = new VBox(10);
+
+        Runnable actualizarListaTareas = () -> {
+            listaTareas.getChildren().clear();
+            if (cursoActual.getTareas().isEmpty()) { listaTareas.getChildren().add(emptyLabel("No hay tareas registradas en este curso.")); return; }
+            for (Tarea tarea : cursoActual.getTareas()) {
+                VBox tareaBox = new VBox(8); tareaBox.setPadding(new Insets(12));
+                boolean entregada = tareasEntregadas.contains(tarea);
+                tareaBox.setStyle(entregada
+                        ? "-fx-background-color: #1f2a1f; -fx-border-color: #4ade80; -fx-border-width: 2px; -fx-border-radius: 10; -fx-background-radius: 10;"
+                        : "-fx-background-color: #252525; -fx-border-color: #333333; -fx-border-radius: 10; -fx-background-radius: 10;");
+                Label tareaNombre = new Label(tarea.getTitulo()); tareaNombre.setStyle("-fx-text-fill: #f0f0f0; -fx-font-size: 13px; -fx-font-weight: bold;");
+                Label tareaMeta = new Label("Dificultad: " + tarea.getDificultad()); tareaMeta.setStyle("-fx-text-fill: #888888; -fx-font-size: 11px;");
+                if (entregada) {
+                    Label completadaLbl = new Label("✓ Entregada"); completadaLbl.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px; -fx-font-weight: bold;");
+                    tareaBox.getChildren().addAll(tareaNombre, tareaMeta, completadaLbl);
+                } else {
+                    Label comentariosLbl = new Label("Comentarios"); comentariosLbl.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 12px; -fx-font-weight: bold;");
+                    TextArea comentarioArea = new TextArea(); comentarioArea.setPromptText("Escribe un comentario..."); comentarioArea.setWrapText(true); comentarioArea.setPrefRowCount(3); comentarioArea.setStyle("-fx-control-inner-background: #1a1a1a; -fx-text-fill: #e0e0e0;");
+                    Button comentarBtn = new Button("Publicar comentario"); comentarBtn.setStyle("-fx-background-color: #2f2f2f; -fx-text-fill: #d0d0d0; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #3b3b3b; -fx-cursor: hand;");
+                    Label comentarioMsg = new Label(); comentarioMsg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;");
+                    comentarBtn.setOnAction(e -> {
+                        if (comentarioArea.getText().isBlank()) { comentarioMsg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 11px;"); comentarioMsg.setText("Escribe un comentario antes de publicar."); }
+                        else { comentarioMsg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;"); comentarioMsg.setText("Comentario registrado localmente."); comentarioArea.clear(); }
+                    });
+                    tareaBox.getChildren().addAll(tareaNombre, tareaMeta, comentariosLbl, comentarioArea, comentarBtn, comentarioMsg);
+                }
+                listaTareas.getChildren().add(tareaBox);
+            }
+        };
+        actualizarListaTareas.run();
+        cardTareas.getChildren().addAll(tareasTitle, listaTareas);
+        izquierda.getChildren().addAll(cardMaterial, cardTareas);
+
+        VBox derecha = new VBox(14); derecha.setPrefWidth(280);
+
+        VBox cardAlumnos = new VBox(10); cardAlumnos.setPadding(new Insets(16)); cardAlumnos.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-radius: 12; -fx-background-radius: 12;");
+        Label alumnosTitle = new Label("Lista de estudiantes"); alumnosTitle.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 14px; -fx-font-weight: bold;");
+        VBox listaAlumnos = new VBox(8);
+        if (cursoActual.getAlumnos().isEmpty()) { listaAlumnos.getChildren().add(emptyLabel("No hay estudiantes inscritos.")); }
+        else { for (Alumno a : cursoActual.getAlumnos()) { Label al = new Label("• " + a.getNombre() + " (@" + a.getUsername() + ")"); al.setStyle("-fx-text-fill: #bcbcbc; -fx-font-size: 12px;"); listaAlumnos.getChildren().add(al); } }
+        cardAlumnos.getChildren().addAll(alumnosTitle, listaAlumnos);
+
+        VBox cardSubir = new VBox(10); cardSubir.setPadding(new Insets(16)); cardSubir.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-radius: 12; -fx-background-radius: 12;");
+        Label subirTitle = new Label("Subir tarea"); subirTitle.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 14px; -fx-font-weight: bold;");
+        TextField nombreAlumnoField = new TextField(); nombreAlumnoField.setPromptText("Tu nombre completo");
+        ComboBox<Tarea> tareasBox = new ComboBox<>(); tareasBox.getItems().addAll(cursoActual.getTareas()); tareasBox.setPromptText("Selecciona una tarea"); tareasBox.setMaxWidth(Double.MAX_VALUE);
+        Button selArchivoBtn = new Button("Seleccionar PDF"); selArchivoBtn.setMaxWidth(Double.MAX_VALUE); selArchivoBtn.setStyle("-fx-background-color: #2f2f2f; -fx-text-fill: #d0d0d0; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #3b3b3b; -fx-cursor: hand;");
+        Label archivoLbl = new Label("Ningún archivo seleccionado"); archivoLbl.setStyle("-fx-text-fill: #777777; -fx-font-size: 11px;");
+        final java.io.File[] archivoSel = new java.io.File[1];
+        selArchivoBtn.setOnAction(e -> { javafx.stage.FileChooser fc = new javafx.stage.FileChooser(); fc.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("PDF Files", "*.pdf")); java.io.File f = fc.showOpenDialog(stage); if (f != null) { archivoSel[0] = f; archivoLbl.setText("✓ " + f.getName()); archivoLbl.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;"); } });
+        Label subirMsg = new Label(); subirMsg.setWrapText(true);
+        Button subirBtn = new Button("Entregar tarea"); subirBtn.setMaxWidth(Double.MAX_VALUE); subirBtn.setStyle("-fx-background-color: #2563eb; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;");
+        subirBtn.setOnAction(e -> {
+            String nA = nombreAlumnoField.getText().trim(); Tarea tS = tareasBox.getValue();
+            if (nA.isBlank()) { subirMsg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 11px;"); subirMsg.setText("❌ Ingresa tu nombre."); return; }
+            if (tS == null)   { subirMsg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 11px;"); subirMsg.setText("❌ Selecciona una tarea."); return; }
+            if (archivoSel[0] == null) { subirMsg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 11px;"); subirMsg.setText("❌ Selecciona un PDF."); return; }
+            Alert conf = new Alert(Alert.AlertType.CONFIRMATION); conf.setTitle("Confirmar entrega"); conf.setHeaderText("¿Estás seguro?"); conf.setContentText("Tarea: " + tS.getTitulo() + "\nAlumno: " + nA);
+            conf.showAndWait().ifPresent(r -> { if (r == ButtonType.OK) {
+                Alumno alumno = new Alumno(System.identityHashCode(nA), nA, nA.toLowerCase().replace(" ", "."));
+                repo.gestorEntregas.subirEntrega(alumno, tS, archivoSel[0]);
+                tareasEntregadas.add(tS); subirMsg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;"); subirMsg.setText("✅ Tarea entregada correctamente.");
+                actualizarListaTareas.run(); nombreAlumnoField.clear(); tareasBox.getSelectionModel().clearSelection(); archivoSel[0] = null; archivoLbl.setText("Ningún archivo seleccionado"); archivoLbl.setStyle("-fx-text-fill: #777777; -fx-font-size: 11px;");
+            }});
+        });
+        cardSubir.getChildren().addAll(subirTitle, nombreAlumnoField, tareasBox, selArchivoBtn, archivoLbl, subirBtn, subirMsg);
+        derecha.getChildren().addAll(cardAlumnos, cardSubir);
+
+        HBox contenidoPrincipal = new HBox(16, izquierda, derecha);
+        VBox.setVgrow(contenidoPrincipal, Priority.ALWAYS);
+        contenedor.getChildren().addAll(header, contenidoPrincipal);
+        return contenedor;
+    }
+
     // ── VER TAREAS ─────────────────────────────────────────────────────────────
-    // ── VER TAREAS ─────────────────────────────────────────────────────────────
-private VBox buildVerTareas(RepositorioController repo) {
-
-    VBox lista = new VBox(10);
-    lista.setPadding(new Insets(20));
-
-    List<Curso> cursos = repo.gestorCurso.listarCursos();
-    boolean hayTareas = false;
-
-    for (Curso c : cursos) {
-
-        if (!c.getTareas().isEmpty()) {
-
-            Label cursoLabel = new Label(c.getNombre().toUpperCase());
-            cursoLabel.setStyle("-fx-text-fill: #3a3a3a; -fx-font-size: 10px; -fx-font-weight: bold; -fx-padding: 8 0 4 0;");
-            lista.getChildren().add(cursoLabel);
-
-            for (Tarea t : c.getTareas()) {
-
-                HBox fila = tareaFila(t);
-
-               
-                fila.setStyle("-fx-background-color: #1e1e1e; -fx-padding: 10; -fx-background-radius: 10;");
-
-                fila.setOnMouseEntered(e ->
-                    fila.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 10; -fx-background-radius: 10;")
-                );
-
-                fila.setOnMouseExited(e ->
-                    fila.setStyle("-fx-background-color: #1e1e1e; -fx-padding: 10; -fx-background-radius: 10;")
-                );
-
-                
-                fila.setOnMouseClicked(e -> {
-                    mostrarDetalleTarea(t, repo);
-                });
-
-                lista.getChildren().add(fila);
-                hayTareas = true;
+    private VBox buildVerTareas(RepositorioController repo) {
+        VBox lista = new VBox(10); lista.setPadding(new Insets(20));
+        List<Curso> cursos = repo.gestorCurso.listarCursos(); boolean hayTareas = false;
+        for (Curso c : cursos) {
+            if (!c.getTareas().isEmpty()) {
+                Label cl = new Label(c.getNombre().toUpperCase()); cl.setStyle("-fx-text-fill: #3a3a3a; -fx-font-size: 10px; -fx-font-weight: bold; -fx-padding: 8 0 4 0;");
+                lista.getChildren().add(cl);
+                for (Tarea t : c.getTareas()) { lista.getChildren().add(tareaFila(t)); hayTareas = true; }
             }
         }
-    }
-
-    if (!hayTareas) {
-        lista.getChildren().add(emptyLabel("No hay tareas creadas aún."));
-    }
-
-    lista.setStyle("-fx-background-color: #111111;");
-    return lista;
-}
- private void mostrarDetalleTarea(Tarea t, RepositorioController repo) {
-
-    VBox root = new VBox(15);
-    root.setPadding(new Insets(20));
-    root.setStyle("-fx-background-color: #111111;");
-
-    Label titulo = new Label("DETALLE DE TAREA");
-    titulo.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
-
-    Label nombre = new Label("Tarea: " + t.getTitulo());
-    nombre.setStyle("-fx-text-fill: #cccccc;");
-
-    Label desc = new Label("Descripción: " + t.getDescripcion());
-    desc.setStyle("-fx-text-fill: #aaaaaa;");
-    desc.setWrapText(true);
-
-    root.getChildren().addAll(titulo, nombre, desc);
-
-    Scene scene = new Scene(root, 400, 300);
-    Stage stage = new Stage();
-    stage.setTitle("Detalle Tarea");
-    stage.setScene(scene);
-    stage.show();
-}
-
-
-      private void mostrarMiEntrega(Tarea t, RepositorioController repo) {
-
-    
-    Entrega entrega = repo.gestorEntregas.obtenerPorTarea(t)
-            .stream()
-            .findFirst()
-            .orElse(null);
-
-    VBox root = new VBox(15);
-    root.setPadding(new Insets(20));
-    root.setStyle("-fx-background-color: #111111;");
-
-    Label titulo = new Label("MI ENTREGA");
-    titulo.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
-
-    if (entrega != null) {
-
-      
-        int nota = EntregaJSON.obtenerNota(entrega.getId());
-        String comentario = EntregaJSON.obtenerComentario(entrega.getId());
-
-        Label alumnoLabel = new Label("Alumno: " + entrega.getAlumno().getNombre());
-        alumnoLabel.setStyle("-fx-text-fill: white;");
-
-        Label notaLabel = new Label("Nota: " + nota);
-        notaLabel.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 14px;");
-
-        Label comentarioLabel = new Label("Comentario: " + comentario);
-        comentarioLabel.setStyle("-fx-text-fill: #cccccc;");
-        comentarioLabel.setWrapText(true);
-
-        Button descargar = new Button("Descargar PDF");
-        descargar.setOnAction(e -> {
-            try {
-                java.awt.Desktop.getDesktop().open(entrega.getArchivo());
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        });
-
-        root.getChildren().addAll(titulo, alumnoLabel, notaLabel, comentarioLabel, descargar);
-
-    } else {
-        Label no = new Label("No has enviado esta tarea.");
-        no.setStyle("-fx-text-fill: #f87171;");
-        root.getChildren().addAll(titulo, no);
-    }
-
-    Scene scene = new Scene(root, 400, 300);
-    Stage stage = new Stage();
-    stage.setTitle("Mi Entrega");
-    stage.setScene(scene);
-    stage.show();
-}
-    // ── VINCULAR RECURSO (docente) ────────────────────────────────────────────
-    private VBox buildVincularRecurso(RepositorioController repo, Stage stage) {
-        Label info = new Label("Vincula material de apoyo (Videos, PDFs o Enlaces) a tus cursos mediante URLs.");
-        info.setStyle("-fx-text-fill: #888888; -fx-font-size: 12px;");
-
-        Label lC = fieldLbl("Curso");
-        ComboBox<Curso> cursosBox = new ComboBox<>();
-        cursosBox.getItems().addAll(repo.gestorCurso.listarCursos());
-        cursosBox.setPromptText("Selecciona un curso");
-        cursosBox.setMaxWidth(Double.MAX_VALUE);
-
-        Label lT = fieldLbl("Título del recurso");
-        TextField tituloField = new TextField();
-        tituloField.setPromptText("Ej: Guía de estudio PDF");
-        tituloField.setMaxWidth(Double.MAX_VALUE);
-
-        Label lTipo = fieldLbl("Tipo de recurso");
-        ComboBox<Recurso.TipoRecurso> tipoBox = new ComboBox<>();
-        tipoBox.getItems().addAll(Recurso.TipoRecurso.values());
-        tipoBox.setPromptText("Selecciona el tipo");
-        tipoBox.setMaxWidth(Double.MAX_VALUE);
-
-        Label lUrl = fieldLbl("Enlace / URL");
-        TextField urlField = new TextField();
-        urlField.setPromptText("https://mi-enlace.com/archivo.pdf o youtube.com/...");
-        urlField.setMaxWidth(Double.MAX_VALUE);
-
-        Label msg = new Label();
-        Button vincularBtn = new Button("Vincular Recurso →");
-        vincularBtn.setMaxWidth(Double.MAX_VALUE);
-        vincularBtn.setPrefHeight(42);
-
-        vincularBtn.setOnAction(e -> {
-            Curso c = cursosBox.getValue();
-            String tit = tituloField.getText().trim();
-            Recurso.TipoRecurso tipo = tipoBox.getValue();
-            String url = urlField.getText().trim();
-
-            if (c == null || tit.isEmpty() || tipo == null || url.isEmpty()) {
-                msg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;");
-                msg.setText("⚠ Completa todos los campos");
-                return;
-            }
-            repo.recursosController.agregarRecurso(c, tit, tipo, url);
-            msg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;");
-            msg.setText("✓ Recurso vinculado correctamente");
-            tituloField.clear();
-            urlField.clear();
-        });
-        VBox card = new VBox(12, info, lC, cursosBox, lT, tituloField, lTipo, tipoBox, lUrl, urlField, msg, vincularBtn);
-        card.setPadding(new Insets(20));
-        card.setMaxWidth(420);
-        card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
-
-        VBox wrap = new VBox(card);
-        wrap.setPadding(new Insets(20));
-        wrap.setStyle("-fx-background-color: #111111;");
-        return wrap;
+        if (!hayTareas) lista.getChildren().add(emptyLabel("No hay tareas creadas aún."));
+        lista.setStyle("-fx-background-color: #111111;");
+        return lista;
     }
 
     // ── CREAR CURSO ────────────────────────────────────────────────────────────
     private VBox buildCrearCurso(Stage stage, RepositorioController repo) {
-        Label info = new Label("Crea un nuevo curso para empezar a asignar tareas.");
-        info.setStyle("-fx-text-fill: #555555; -fx-font-size: 12px;");
-
-        Label lN = fieldLbl("Nombre del curso");
-        TextField nombreField = new TextField();
-        nombreField.setPromptText("Ej: Matemáticas I");
-        nombreField.setMaxWidth(Double.MAX_VALUE);
-
+        Label info = new Label("Crea un nuevo curso para empezar a asignar tareas."); info.setStyle("-fx-text-fill: #555555; -fx-font-size: 12px;");
+        Label lN = fieldLbl("Nombre del curso"); TextField nombreField = new TextField(); nombreField.setPromptText("Ej: Matemáticas I"); nombreField.setMaxWidth(Double.MAX_VALUE);
         Label msg = new Label();
-        Button crearBtn = new Button("Crear Curso →");
-        crearBtn.setMaxWidth(Double.MAX_VALUE);
-        crearBtn.setPrefHeight(42);
+        Button crearBtn = new Button("Crear Curso →"); crearBtn.setMaxWidth(Double.MAX_VALUE); crearBtn.setPrefHeight(42);
         crearBtn.setOnAction(e -> {
-            if (nombreField.getText().isBlank()) {
-                msg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;");
-                msg.setText("⚠ Ingresa un nombre"); return;
-            }
-            Curso c = repo.gestorCurso.crearCurso(nombreField.getText(), null);
-            msg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;");
-            msg.setText("✓ Curso creado — Código: " + c.getCodigo());
-            nombreField.clear();
+            if (nombreField.getText().isBlank()) { msg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;"); msg.setText("⚠ Ingresa un nombre"); return; }
+            crearBtn.setDisable(true);
+            msg.setStyle("-fx-text-fill: #fbbf24; -fx-font-size: 12px;"); msg.setText("⏳ Creando curso...");
+            String nombreCurso = nombreField.getText();
+            new Thread(() -> {
+                Curso c = repo.gestorCurso.crearCurso(nombreCurso, null);
+                Platform.runLater(() -> {
+                    msg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;"); msg.setText("✓ Curso creado — Código: " + c.getCodigo());
+                    nombreField.clear(); crearBtn.setDisable(false);
+                });
+            }).start();
         });
-
-        VBox card = new VBox(12, info, lN, nombreField, msg, crearBtn);
-        card.setPadding(new Insets(20));
-        card.setMaxWidth(420);
-        card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
-
-        VBox wrap = new VBox(card);
-        wrap.setPadding(new Insets(20));
-        wrap.setStyle("-fx-background-color: #111111;");
-        return wrap;
+        VBox card = new VBox(12, info, lN, nombreField, msg, crearBtn); card.setPadding(new Insets(20)); card.setMaxWidth(420); card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
+        VBox wrap = new VBox(card); wrap.setPadding(new Insets(20)); wrap.setStyle("-fx-background-color: #111111;"); return wrap;
     }
 
-    // ── ASIGNAR TAREA ──────────────────────────────────────────────────────────
+    // ── ASIGNAR TAREA — con IA ─────────────────────────────────────────────────
     private VBox buildAsignarTarea(Stage stage, RepositorioController repo) {
-        Label lC = fieldLbl("Curso");
-        ComboBox<Curso> cursosBox = new ComboBox<>();
-        cursosBox.getItems().addAll(repo.gestorCurso.listarCursos());
-        cursosBox.setPromptText("Selecciona un curso");
-        cursosBox.setMaxWidth(Double.MAX_VALUE);
-
-        Label lT = fieldLbl("Título de la tarea");
-        TextField titulo = new TextField();
-        titulo.setPromptText("Ej: Proyecto final de algoritmos");
-        titulo.setMaxWidth(Double.MAX_VALUE);
-
-        Label infoIA = new Label("🤖 La dificultad será asignada automáticamente por IA");
-        infoIA.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px; -fx-padding: 4 0;");
-
+        Label lC = fieldLbl("Curso"); ComboBox<Curso> cursosBox = new ComboBox<>(); cursosBox.getItems().addAll(repo.gestorCurso.listarCursos()); cursosBox.setPromptText("Selecciona un curso"); cursosBox.setMaxWidth(Double.MAX_VALUE);
+        Label lT = fieldLbl("Título de la tarea"); TextField titulo = new TextField(); titulo.setPromptText("Ej: Proyecto final de algoritmos"); titulo.setMaxWidth(Double.MAX_VALUE);
+        Label infoIA = new Label("🤖 La dificultad será asignada automáticamente por IA"); infoIA.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px; -fx-padding: 4 0;");
         Label msg = new Label();
-        Button crearBtn = new Button("Asignar Tarea →");
-        crearBtn.setMaxWidth(Double.MAX_VALUE);
-        crearBtn.setPrefHeight(42);
+        Button crearBtn = new Button("Asignar Tarea →"); crearBtn.setMaxWidth(Double.MAX_VALUE); crearBtn.setPrefHeight(42);
         crearBtn.setOnAction(e -> {
             Curso c = cursosBox.getValue();
-            if (c == null || titulo.getText().isBlank()) {
-                msg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;");
-                msg.setText("⚠ Completa todos los campos"); return;
-            }
-            msg.setStyle("-fx-text-fill: #fbbf24; -fx-font-size: 12px;");
-            msg.setText("⏳ Clasificando con IA...");
-            crearBtn.setDisable(true);
+            if (c == null || titulo.getText().isBlank()) { msg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;"); msg.setText("⚠ Completa todos los campos"); return; }
+            msg.setStyle("-fx-text-fill: #fbbf24; -fx-font-size: 12px;"); msg.setText("⏳ Clasificando con IA..."); crearBtn.setDisable(true);
             String tituloTarea = titulo.getText();
             new Thread(() -> {
                 Tarea.Dificultad dif = GestorIA.clasificar(tituloTarea);
                 repo.tareasController.crearTarea(null, c, tituloTarea, null, dif);
                 Platform.runLater(() -> {
-                    String emoji = switch (dif) {
-                        case FACIL   -> "🟢";
-                        case MEDIO   -> "🟡";
-                        case DIFICIL -> "🔴";
-                    };
-                    msg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;");
-                    msg.setText("✓ Tarea creada — IA clasificó como: " + emoji + " " + dif.toString());
-                    titulo.clear();
-                    cursosBox.getSelectionModel().clearSelection();
-                    crearBtn.setDisable(false);
+                    String emoji = switch (dif) { case FACIL -> "🟢"; case MEDIO -> "🟡"; case DIFICIL -> "🔴"; };
+                    msg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;"); msg.setText("✓ Tarea creada — IA clasificó como: " + emoji + " " + dif.toString());
+                    titulo.clear(); cursosBox.getSelectionModel().clearSelection(); crearBtn.setDisable(false);
                 });
             }).start();
         });
-
-        VBox card = new VBox(12, lC, cursosBox, lT, titulo, infoIA, msg, crearBtn);
-        card.setPadding(new Insets(20));
-        card.setMaxWidth(420);
-        card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
-
-        VBox wrap = new VBox(card);
-        wrap.setPadding(new Insets(20));
-        wrap.setStyle("-fx-background-color: #111111;");
-        return wrap;
+        VBox card = new VBox(12, lC, cursosBox, lT, titulo, infoIA, msg, crearBtn); card.setPadding(new Insets(20)); card.setMaxWidth(420); card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
+        VBox wrap = new VBox(card); wrap.setPadding(new Insets(20)); wrap.setStyle("-fx-background-color: #111111;"); return wrap;
     }
 
     // ── VER ENTREGAS ───────────────────────────────────────────────────────────
-private VBox buildVerEntregas(RepositorioController repo) {
-
-    Label lC = fieldLbl("Curso");
-    ComboBox<Curso> cursosBox = new ComboBox<>();
-    cursosBox.getItems().addAll(repo.gestorCurso.listarCursos());
-    cursosBox.setPromptText("Selecciona un curso");
-    cursosBox.setMaxWidth(Double.MAX_VALUE);
-
-    Label lT = fieldLbl("Tarea");
-    ComboBox<Tarea> tareasBox = new ComboBox<>();
-    tareasBox.setPromptText("Selecciona una tarea");
-    tareasBox.setMaxWidth(Double.MAX_VALUE);
-
-    cursosBox.setOnAction(e -> {
-        Curso c = cursosBox.getValue();
-        if (c != null) {
-            tareasBox.getItems().clear();
-            tareasBox.getItems().addAll(c.getTareas());
-        }
-    });
-
-    VBox listaEntregas = new VBox(8);
-
-    Button verBtn = new Button("Ver Entregas");
-    verBtn.setMaxWidth(Double.MAX_VALUE);
-    verBtn.setPrefHeight(42);
-
-    verBtn.setOnAction(e -> {
-
-        listaEntregas.getChildren().clear();
-
-        Tarea t = tareasBox.getValue();
-        if (t == null) return;
-
-        List<Entrega> entregas = repo.gestorEntregas.obtenerPorTarea(t);
-
-        if (entregas.isEmpty()) {
-            listaEntregas.getChildren().add(emptyLabel("Sin entregas para esta tarea."));
-            return;
-        }
-
-        for (Entrega en : entregas) {
-
-            Label alumnoLbl = new Label(en.getAlumno().getNombre());
-            alumnoLbl.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 13px; -fx-font-weight: bold;");
-
-            Label archivoLbl = new Label("↳ " + en.getArchivo().getName());
-            archivoLbl.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px;");
-
-            TextField notaField = new TextField();
-            notaField.setPromptText("Nota (1-100)");
-            notaField.setMaxWidth(80);
-
-            TextField comentarioField = new TextField();
-            comentarioField.setPromptText("Comentario...");
-            comentarioField.setMaxWidth(Double.MAX_VALUE);
-
-            Button descargarBtn = new Button("Descargar");
-            descargarBtn.getStyleClass().add("button-ghost");
-            descargarBtn.setOnAction(ev -> {
-                try {
-                    java.awt.Desktop.getDesktop().open(en.getArchivo());
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-            });
-
-            Button guardarBtn = new Button("Guardar");
-            guardarBtn.setOnAction(ev -> {
-                try {
-                    int nota = Integer.parseInt(notaField.getText());
-
-                    if (nota < 1 || nota > 100) {
-                        System.out.println("Nota inválida");
-                        return;
-                    }
-
-                    String comentario = comentarioField.getText();
-
-                
-                    System.out.println("Alumno: " + en.getAlumno().getNombre());
-                    System.out.println("Nota: " + nota);
-                    System.out.println("Comentario: " + comentario);
-
-                } catch (NumberFormatException ex) {
-                    System.out.println("Ingresa un número válido");
-                }
-            });
-
-            HBox controles = new HBox(10, notaField, comentarioField, guardarBtn, descargarBtn);
-
-            VBox contenido = new VBox(5, alumnoLbl, archivoLbl, controles);
-
-            HBox row = new HBox(contenido);
-            row.setPadding(new Insets(10, 14, 10, 14));
-            row.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10;");
-
-            listaEntregas.getChildren().add(row);
-        }
-    });
-
-    VBox card = new VBox(12, lC, cursosBox, lT, tareasBox, verBtn, listaEntregas);
-    card.setPadding(new Insets(20));
-    card.setMaxWidth(460);
-    card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-radius: 14; -fx-background-radius: 14;");
-
-    VBox wrap = new VBox(card);
-    wrap.setPadding(new Insets(20));
-    wrap.setStyle("-fx-background-color: #111111;");
-
-    return wrap;
-}
+    private VBox buildVerEntregas(RepositorioController repo) {
+        Label lC = fieldLbl("Curso"); ComboBox<Curso> cursosBox = new ComboBox<>(); cursosBox.getItems().addAll(repo.gestorCurso.listarCursos()); cursosBox.setPromptText("Selecciona un curso"); cursosBox.setMaxWidth(Double.MAX_VALUE);
+        Label lT = fieldLbl("Tarea"); ComboBox<Tarea> tareasBox = new ComboBox<>(); tareasBox.setPromptText("Selecciona una tarea"); tareasBox.setMaxWidth(Double.MAX_VALUE);
+        cursosBox.setOnAction(e -> { Curso c = cursosBox.getValue(); if (c != null) { tareasBox.getItems().clear(); tareasBox.getItems().addAll(c.getTareas()); } });
+        VBox listaEntregas = new VBox(8);
+        Button verBtn = new Button("Ver Entregas"); verBtn.setMaxWidth(Double.MAX_VALUE); verBtn.setPrefHeight(42);
+        verBtn.setOnAction(e -> {
+            Tarea t = tareasBox.getValue(); if (t == null) return;
+            verBtn.setDisable(true);
+            listaEntregas.getChildren().clear();
+            listaEntregas.getChildren().add(emptyLabel("⏳ Cargando entregas..."));
+            new Thread(() -> {
+                List<Entrega> entregas = repo.gestorEntregas.obtenerPorTarea(t);
+                Platform.runLater(() -> {
+                    listaEntregas.getChildren().clear();
+                    if (entregas.isEmpty()) { listaEntregas.getChildren().add(emptyLabel("Sin entregas para esta tarea.")); }
+                    else { for (Entrega en : entregas) { Label aL = new Label(en.getAlumno().getNombre()); aL.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 13px; -fx-font-weight: bold;"); Label fL = new Label("↳ " + en.getArchivo().getName()); fL.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px;"); HBox row = new HBox(new VBox(2, aL, fL)); row.setPadding(new Insets(10, 14, 10, 14)); row.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10;"); listaEntregas.getChildren().add(row); } }
+                    verBtn.setDisable(false);
+                });
+            }).start();
+        });
+        VBox card = new VBox(12, lC, cursosBox, lT, tareasBox, verBtn, listaEntregas); card.setPadding(new Insets(20)); card.setMaxWidth(460); card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
+        VBox wrap = new VBox(card); wrap.setPadding(new Insets(20)); wrap.setStyle("-fx-background-color: #111111;"); return wrap;
+    }
 
     // ── GESTIONAR ALUMNOS ──────────────────────────────────────────────────────
     private VBox buildAlumnos(Stage stage, RepositorioController repo) {
-        Label lC = fieldLbl("Curso");
-        ComboBox<Curso> cursosBox = new ComboBox<>();
-        cursosBox.getItems().addAll(repo.gestorCurso.listarCursos());
-        cursosBox.setPromptText("Selecciona un curso");
-        cursosBox.setMaxWidth(Double.MAX_VALUE);
-
+        Label lC = fieldLbl("Curso"); ComboBox<Curso> cursosBox = new ComboBox<>(); cursosBox.getItems().addAll(repo.gestorCurso.listarCursos()); cursosBox.setPromptText("Selecciona un curso"); cursosBox.setMaxWidth(Double.MAX_VALUE);
         VBox listaAlumnos = new VBox(8);
         cursosBox.setOnAction(e -> {
-            listaAlumnos.getChildren().clear();
-            Curso c = cursosBox.getValue();
-            if (c == null) return;
-            if (c.getAlumnos().isEmpty()) {
-                listaAlumnos.getChildren().add(emptyLabel("No hay alumnos en este curso."));
-            } else {
-                for (Alumno a : c.getAlumnos()) {
-                    Label nombre = new Label(a.getNombre());
-                    nombre.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 13px; -fx-font-weight: bold;");
-                    Label user = new Label("@" + a.getUsername());
-                    user.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px;");
-                    Region sp = new Region(); HBox.setHgrow(sp, Priority.ALWAYS);
-                    Button expBtn = new Button("Expulsar");
-                    expBtn.setStyle("-fx-background-color: rgba(239,68,68,0.1); -fx-text-fill: #f87171; -fx-font-size: 11px; -fx-padding: 4 12; -fx-background-radius: 8; -fx-border-color: transparent; -fx-cursor: hand;");
-                    expBtn.setOnAction(ev -> { c.getAlumnos().remove(a); refresh(stage, repo); });
-                    HBox row = new HBox(10, new VBox(2, nombre, user), sp, expBtn);
-                    row.setAlignment(Pos.CENTER_LEFT);
-                    row.setPadding(new Insets(10, 14, 10, 14));
-                    row.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10;");
-                    listaAlumnos.getChildren().add(row);
-                }
-            }
+            listaAlumnos.getChildren().clear(); Curso c = cursosBox.getValue(); if (c == null) return;
+            if (c.getAlumnos().isEmpty()) { listaAlumnos.getChildren().add(emptyLabel("No hay alumnos en este curso.")); }
+            else { for (Alumno a : c.getAlumnos()) { Label n = new Label(a.getNombre()); n.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 13px; -fx-font-weight: bold;"); Label u = new Label("@" + a.getUsername()); u.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px;"); Region sp = new Region(); HBox.setHgrow(sp, Priority.ALWAYS); Button expBtn = new Button("Expulsar"); expBtn.setStyle("-fx-background-color: rgba(239,68,68,0.1); -fx-text-fill: #f87171; -fx-font-size: 11px; -fx-padding: 4 12; -fx-background-radius: 8; -fx-border-color: transparent; -fx-cursor: hand;"); expBtn.setOnAction(ev -> { c.getAlumnos().remove(a); refresh(stage, repo); }); HBox row = new HBox(10, new VBox(2, n, u), sp, expBtn); row.setAlignment(Pos.CENTER_LEFT); row.setPadding(new Insets(10, 14, 10, 14)); row.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10;"); listaAlumnos.getChildren().add(row); } }
         });
-
-        VBox card = new VBox(12, lC, cursosBox, listaAlumnos);
-        card.setPadding(new Insets(20));
-        card.setMaxWidth(460);
-        card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
-
-        VBox wrap = new VBox(card);
-        wrap.setPadding(new Insets(20));
-        wrap.setStyle("-fx-background-color: #111111;");
-        return wrap;
+        VBox card = new VBox(12, lC, cursosBox, listaAlumnos); card.setPadding(new Insets(20)); card.setMaxWidth(460); card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
+        VBox wrap = new VBox(card); wrap.setPadding(new Insets(20)); wrap.setStyle("-fx-background-color: #111111;"); return wrap;
     }
 
     // ── MIS TAREAS — HU-05 ─────────────────────────────────────────────────────
     private VBox buildMisTareas(RepositorioController repo) {
-
-    java.util.List<Tarea> tareas = new java.util.ArrayList<>();
-    for (Curso c : repo.gestorCurso.listarCursos()) tareas.addAll(c.getTareas());
-    tareas.sort(java.util.Comparator.comparing(Tarea::getDificultad));
-
-    long facil   = tareas.stream().filter(t -> t.getDificultad() == Tarea.Dificultad.FACIL).count();
-    long medio   = tareas.stream().filter(t -> t.getDificultad() == Tarea.Dificultad.MEDIO).count();
-    long dificil = tareas.stream().filter(t -> t.getDificultad() == Tarea.Dificultad.DIFICIL).count();
-
-    HBox stats = new HBox(12,
-            statCard("Total",   String.valueOf(tareas.size()), "#a0a0a0"),
-            statCard("Fácil",   String.valueOf(facil),         "#4ade80"),
-            statCard("Medio",   String.valueOf(medio),         "#fbbf24"),
-            statCard("Difícil", String.valueOf(dificil),       "#f87171")
-    );
-    stats.setPadding(new Insets(20, 20, 8, 20));
-
-    Label recomendacion = new Label();
-    if (!tareas.isEmpty()) {
-        if (facil > 0) recomendacion.setText("💡 Te recomendamos empezar por las tareas marcadas como Fácil");
-        else if (medio > 0) recomendacion.setText("💡 Te recomendamos empezar por las tareas de dificultad Media");
-        else recomendacion.setText("💪 Solo tienes tareas difíciles — ¡ánimo, empieza cuanto antes!");
-    } else {
-        recomendacion.setText("No tienes tareas aún. Únete a una clase primero.");
-    }
-
-    recomendacion.setStyle("-fx-text-fill: #888888; -fx-font-size: 12px; -fx-background-color: #1e1e1e; -fx-padding: 10 14; -fx-background-radius: 8;");
-    recomendacion.setWrapText(true);
-
-    VBox recBox = new VBox(recomendacion);
-    recBox.setPadding(new Insets(0, 20, 8, 20));
-
-    VBox lista = new VBox(8);
-    lista.setPadding(new Insets(4, 20, 20, 20));
-
-    if (!tareas.isEmpty()) {
-
-        boolean addF = false, addM = false, addD = false;
-
-        for (Tarea t : tareas) {
-
-            HBox fila = (t.getDificultad() == Tarea.Dificultad.DIFICIL)
-                    ? tareaFilaDificil(t)
-                    : tareaFila(t);
-
-         
-            fila.setStyle("-fx-background-color: #1e1e1e; -fx-padding: 10; -fx-background-radius: 10;");
-
-            fila.setOnMouseEntered(e ->
-                fila.setStyle("-fx-background-color: #2a2a2a; -fx-padding: 10; -fx-background-radius: 10;")
-            );
-
-            fila.setOnMouseExited(e ->
-                fila.setStyle("-fx-background-color: #1e1e1e; -fx-padding: 10; -fx-background-radius: 10;")
-            );
-
-           
-            fila.setOnMouseClicked(e -> {
-                mostrarMiEntrega(t, repo);
-            });
-
-            switch (t.getDificultad()) {
-                case FACIL -> {
-                    if (!addF) { lista.getChildren().add(secLabel("FÁCIL")); addF = true; }
-                    lista.getChildren().add(fila);
-                }
-                case MEDIO -> {
-                    if (!addM) { lista.getChildren().add(secLabel("MEDIO")); addM = true; }
-                    lista.getChildren().add(fila);
-                }
-                case DIFICIL -> {
-                    if (!addD) { lista.getChildren().add(secLabel("DIFÍCIL")); addD = true; }
-                    lista.getChildren().add(fila);
+        java.util.List<Tarea> tareas = new java.util.ArrayList<>();
+        for (Curso c : repo.gestorCurso.listarCursos()) tareas.addAll(c.getTareas());
+        tareas.sort(java.util.Comparator.comparing(Tarea::getDificultad));
+        long facil = tareas.stream().filter(t -> t.getDificultad() == Tarea.Dificultad.FACIL).count();
+        long medio = tareas.stream().filter(t -> t.getDificultad() == Tarea.Dificultad.MEDIO).count();
+        long dificil = tareas.stream().filter(t -> t.getDificultad() == Tarea.Dificultad.DIFICIL).count();
+        HBox stats = new HBox(12, statCard("Total", String.valueOf(tareas.size()), "#a0a0a0"), statCard("Fácil", String.valueOf(facil), "#4ade80"), statCard("Medio", String.valueOf(medio), "#fbbf24"), statCard("Difícil", String.valueOf(dificil), "#f87171"));
+        stats.setPadding(new Insets(20, 20, 8, 20));
+        Label recomendacion = new Label();
+        if (!tareas.isEmpty()) {
+            if (facil > 0) recomendacion.setText("💡 Te recomendamos empezar por las tareas marcadas como Fácil");
+            else if (medio > 0) recomendacion.setText("💡 Te recomendamos empezar por las tareas de dificultad Media");
+            else recomendacion.setText("💪 Solo tienes tareas difíciles — ¡ánimo, empieza cuanto antes!");
+        } else { recomendacion.setText("No tienes tareas aún. Únete a una clase primero."); }
+        recomendacion.setStyle("-fx-text-fill: #888888; -fx-font-size: 12px; -fx-background-color: #1e1e1e; -fx-padding: 10 14; -fx-background-radius: 8;"); recomendacion.setWrapText(true);
+        VBox recBox = new VBox(recomendacion); recBox.setPadding(new Insets(0, 20, 8, 20));
+        VBox lista = new VBox(8); lista.setPadding(new Insets(4, 20, 20, 20));
+        if (!tareas.isEmpty()) {
+            boolean addF = false, addM = false, addD = false;
+            for (Tarea t : tareas) {
+                switch (t.getDificultad()) {
+                    case FACIL   -> { if (!addF) { lista.getChildren().add(secLabel("FÁCIL"));   addF = true; } lista.getChildren().add(tareaFila(t)); }
+                    case MEDIO   -> { if (!addM) { lista.getChildren().add(secLabel("MEDIO"));   addM = true; } lista.getChildren().add(tareaFila(t)); }
+                    case DIFICIL -> { if (!addD) { lista.getChildren().add(secLabel("DIFÍCIL")); addD = true; } lista.getChildren().add(tareaFilaDificil(t)); }
                 }
             }
         }
+        VBox content = new VBox(stats, recBox, lista); content.setStyle("-fx-background-color: #111111;"); return content;
     }
 
-    VBox content = new VBox(stats, recBox, lista);
-    content.setStyle("-fx-background-color: #111111;");
-    return content;
-}
     // ── ENTREGAR TAREA ─────────────────────────────────────────────────────────
     private VBox buildEntregar(Stage stage, RepositorioController repo) {
-        Label lNombre = fieldLbl("Tu nombre");
-        TextField nombreField = new TextField();
-        nombreField.setPromptText("Ej: Ana López");
-        nombreField.setMaxWidth(Double.MAX_VALUE);
-
-        Label lC = fieldLbl("Código del curso");
-        TextField codigoField = new TextField();
-        codigoField.setPromptText("Ej: C1");
-        codigoField.setMaxWidth(Double.MAX_VALUE);
-
-        Label lT = fieldLbl("Tarea");
-        ComboBox<Tarea> tareasBox = new ComboBox<>();
-        tareasBox.setPromptText("Primero ingresa el código del curso");
-        tareasBox.setMaxWidth(Double.MAX_VALUE);
-
-        Label msgBuscar = new Label();
-        Button buscarBtn = new Button("Buscar curso");
-        buscarBtn.setMaxWidth(Double.MAX_VALUE);
-        buscarBtn.getStyleClass().add("button-ghost");
+        Label lNombre = fieldLbl("Tu nombre"); TextField nombreField = new TextField(); nombreField.setPromptText("Ej: Ana López"); nombreField.setMaxWidth(Double.MAX_VALUE);
+        Label lC = fieldLbl("Código del curso"); TextField codigoField = new TextField(); codigoField.setPromptText("Ej: C1"); codigoField.setMaxWidth(Double.MAX_VALUE);
+        Label lT = fieldLbl("Tarea"); ComboBox<Tarea> tareasBox = new ComboBox<>(); tareasBox.setPromptText("Primero ingresa el código del curso"); tareasBox.setMaxWidth(Double.MAX_VALUE);
+        Label msgBuscar = new Label(); Button buscarBtn = new Button("Buscar curso"); buscarBtn.setMaxWidth(Double.MAX_VALUE); buscarBtn.getStyleClass().add("button-ghost");
         buscarBtn.setOnAction(e -> {
-            tareasBox.getItems().clear();
             String cod = codigoField.getText().trim();
-            Curso encontrado = null;
-            for (Curso c : repo.gestorCurso.listarCursos()) {
-                if (c.getCodigo().equalsIgnoreCase(cod)) { encontrado = c; break; }
-            }
-            if (encontrado == null) {
-                msgBuscar.setStyle("-fx-text-fill: #f87171; -fx-font-size: 11px;");
-                msgBuscar.setText("⚠ Curso no encontrado");
-            } else {
-                tareasBox.getItems().addAll(encontrado.getTareas());
-                msgBuscar.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;");
-                msgBuscar.setText("✓ Curso: " + encontrado.getNombre());
-            }
+            if (cod.isBlank()) return;
+            buscarBtn.setDisable(true);
+            msgBuscar.setStyle("-fx-text-fill: #fbbf24; -fx-font-size: 11px;"); msgBuscar.setText("⏳ Buscando...");
+            new Thread(() -> {
+                Curso encontrado = null;
+                for (Curso c : repo.gestorCurso.listarCursos()) { if (c.getCodigo().equalsIgnoreCase(cod)) { encontrado = c; break; } }
+                final Curso cursoFinal = encontrado;
+                Platform.runLater(() -> {
+                    tareasBox.getItems().clear();
+                    if (cursoFinal == null) { msgBuscar.setStyle("-fx-text-fill: #f87171; -fx-font-size: 11px;"); msgBuscar.setText("⚠ Curso no encontrado"); }
+                    else { tareasBox.getItems().addAll(cursoFinal.getTareas()); msgBuscar.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;"); msgBuscar.setText("✓ Curso: " + cursoFinal.getNombre()); }
+                    buscarBtn.setDisable(false);
+                });
+            }).start();
         });
-
-        Label lA = fieldLbl("Archivo PDF");
-        Button selBtn = new Button("Seleccionar PDF...");
-        selBtn.setMaxWidth(Double.MAX_VALUE);
-        selBtn.getStyleClass().add("button-ghost");
-        Label archivoLabel = new Label("Ningún archivo seleccionado");
-        archivoLabel.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px;");
+        Label lA = fieldLbl("Archivo PDF"); Button selBtn = new Button("Seleccionar PDF..."); selBtn.setMaxWidth(Double.MAX_VALUE); selBtn.getStyleClass().add("button-ghost");
+        Label archivoLabel = new Label("Ningún archivo seleccionado"); archivoLabel.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px;");
         final java.io.File[] archivoSel = new java.io.File[1];
-        selBtn.setOnAction(e -> {
-            javafx.stage.FileChooser fc = new javafx.stage.FileChooser();
-            fc.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("PDF Files", "*.pdf"));
-            java.io.File f = fc.showOpenDialog(stage);
-            if (f != null) {
-                archivoSel[0] = f;
-                archivoLabel.setText("✓ " + f.getName());
-                archivoLabel.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;");
-            }
+        selBtn.setOnAction(e -> { javafx.stage.FileChooser fc = new javafx.stage.FileChooser(); fc.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("PDF Files", "*.pdf")); java.io.File f = fc.showOpenDialog(stage); if (f != null) { archivoSel[0] = f; archivoLabel.setText("✓ " + f.getName()); archivoLabel.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;"); } });
+        Label msg = new Label(); Button subirBtn = new Button("Entregar Tarea →"); subirBtn.setMaxWidth(Double.MAX_VALUE); subirBtn.setPrefHeight(42);
+        subirBtn.setOnAction(e -> { String nombre = nombreField.getText().trim(); Tarea tarea = tareasBox.getValue(); if (nombre.isBlank() || tarea == null || archivoSel[0] == null) { msg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;"); msg.setText("⚠ Completa todos los campos"); return; }
+            subirBtn.setDisable(true); msg.setStyle("-fx-text-fill: #fbbf24; -fx-font-size: 12px;"); msg.setText("⏳ Subiendo entrega...");
+            Alumno alumno = new Alumno(System.identityHashCode(nombre), nombre, nombre.toLowerCase().replace(" ", "."));
+            java.io.File archivoFinal = archivoSel[0];
+            new Thread(() -> {
+                repo.gestorEntregas.subirEntrega(alumno, tarea, archivoFinal);
+                Platform.runLater(() -> { msg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;"); msg.setText("✓ Tarea entregada correctamente"); subirBtn.setDisable(false); });
+            }).start();
         });
-
-        Label msg = new Label();
-        Button subirBtn = new Button("Entregar Tarea →");
-        subirBtn.setMaxWidth(Double.MAX_VALUE);
-        subirBtn.setPrefHeight(42);
-        subirBtn.setOnAction(e -> {
-            String nombre = nombreField.getText().trim();
-            Tarea tarea   = tareasBox.getValue();
-            if (nombre.isBlank() || tarea == null || archivoSel[0] == null) {
-                msg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;");
-                msg.setText("⚠ Completa todos los campos"); return;
-            }
-            Alumno alumno = new Alumno(1, nombre, nombre.toLowerCase().replace(" ", "."));
-            Entrega e1 = repo.gestorEntregas.subirEntrega(alumno, tarea, archivoSel[55]);
-            EntregaJSON.guardar(e1.getId(), 0, "Bien");
-            msg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;");
-            msg.setText("✓ Tarea entregada correctamente");
-        });
-
-        VBox card = new VBox(12, lNombre, nombreField, lC, codigoField, buscarBtn, msgBuscar, lT, tareasBox, lA, selBtn, archivoLabel, msg, subirBtn);
-        card.setPadding(new Insets(20));
-        card.setMaxWidth(420);
-        card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
-
-        VBox wrap = new VBox(card);
-        wrap.setPadding(new Insets(20));
-        wrap.setStyle("-fx-background-color: #111111;");
-        return wrap;
+        VBox card = new VBox(12, lNombre, nombreField, lC, codigoField, buscarBtn, msgBuscar, lT, tareasBox, lA, selBtn, archivoLabel, msg, subirBtn); card.setPadding(new Insets(20)); card.setMaxWidth(420); card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
+        VBox wrap = new VBox(card); wrap.setPadding(new Insets(20)); wrap.setStyle("-fx-background-color: #111111;"); return wrap;
     }
 
-    // ── CONTACTAR DOCENTE — HU-03 (estudiante) — metodo creado por KATERINE ──────
+    // ── CONTACTAR DOCENTE — HU-03 KATERINE ────────────────────────────────────
     private VBox buildVistaMensajes(Stage stage, RepositorioController repo) {
         VBox box = new VBox(16);
         box.setPadding(new Insets(24));
         box.setStyle("-fx-background-color: #111111;");
 
-        // se añadio campo nombre para identificar al alumno - KATERINE
-        Label lNombre = new Label("Tu nombre:");
-        lNombre.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 12px;");
-        TextField nombreField = new TextField();
-        nombreField.setPromptText("Ej: Juan Pérez");
-        nombreField.setMaxWidth(420);
+        Label lNombre = new Label("Tu nombre:"); lNombre.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 12px;");
+        TextField nombreField = new TextField(); nombreField.setPromptText("Ej: Juan Pérez"); nombreField.setMaxWidth(420);
 
-        // se añadio selector de curso - KATERINE
-        Label lblCurso = new Label("Selecciona el curso:");
-        lblCurso.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 12px;");
-        ComboBox<Curso> comboCurso = new ComboBox<>();
-        comboCurso.getItems().addAll(repo.gestorCurso.listarCursos());
-        comboCurso.setPromptText("Elige un curso...");
-        comboCurso.setMaxWidth(420);
+        Label lblCurso = new Label("Selecciona el curso:"); lblCurso.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 12px;");
+        ComboBox<Curso> comboCurso = new ComboBox<>(); comboCurso.getItems().addAll(repo.gestorCurso.listarCursos()); comboCurso.setPromptText("Elige un curso..."); comboCurso.setMaxWidth(420);
 
-        // se añadio campo de texto para el mensaje - KATERINE
-        Label lblMsg = new Label("Escribe tu mensaje:");
-        lblMsg.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 12px;");
-        TextArea campoMensaje = new TextArea();
-        campoMensaje.setPromptText("Escribe aquí tu consulta al docente...");
-        campoMensaje.setPrefRowCount(4);
-        campoMensaje.setWrapText(true);
-        campoMensaje.setMaxWidth(420);
+        Label lblMsg = new Label("Escribe tu mensaje:"); lblMsg.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 12px;");
+        TextArea campoMensaje = new TextArea(); campoMensaje.setPromptText("Escribe aquí tu consulta al docente..."); campoMensaje.setPrefRowCount(4); campoMensaje.setWrapText(true); campoMensaje.setMaxWidth(420);
 
-        // se añadio boton enviar - KATERINE
-        Button btnEnviar = new Button("Enviar mensaje →");
-        btnEnviar.setPrefHeight(42);
-        btnEnviar.setMaxWidth(420);
+        Button btnEnviar = new Button("Enviar mensaje →"); btnEnviar.setPrefHeight(42); btnEnviar.setMaxWidth(420);
         btnEnviar.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e0e0e0; -fx-border-color: #3a3a3a; -fx-border-radius: 6; -fx-background-radius: 6; -fx-cursor: hand;");
 
-        Label lblStatus = new Label("");
-        lblStatus.setStyle("-fx-font-size: 12px;");
+        Label lblStatus = new Label(""); lblStatus.setStyle("-fx-font-size: 12px;");
 
-        // se añadio historial de mensajes - KATERINE
-        Label lblHistorial = new Label("Mensajes en este curso:");
-        lblHistorial.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 12px;");
+        Label lblHistorial = new Label("Mensajes en este curso:"); lblHistorial.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 12px;");
         VBox historial = new VBox(8);
 
         comboCurso.setOnAction(e -> {
+            Curso c = comboCurso.getValue(); if (c == null) return;
             historial.getChildren().clear();
-            Curso c = comboCurso.getValue();
-            if (c == null) return;
-            List<com.model.Mensaje> msgs = repo.gestorMensajes.obtenerMensajesDeCurso(c.getId());
-            if (msgs.isEmpty()) {
-                Label empty = new Label("Sin mensajes aún.");
-                empty.setStyle("-fx-text-fill: #444444; -fx-font-size: 12px;");
-                historial.getChildren().add(empty);
-            } else {
-                String nombreEscrito = nombreField.getText().trim();
-                for (com.model.Mensaje m : msgs) {
-                    Alumno remitente = com.db.AlumnoDAO.buscarPorId(m.getAlumnoId());
-                    String nombreRemitente = (remitente != null) ? remitente.getNombre() : "Alumno";
-                    String prefijo = nombreRemitente.equalsIgnoreCase(nombreEscrito) ? "Tú" : nombreRemitente;
-                    Label lm = new Label(prefijo + ": " + m.getContenido() + "\n" + m.getFecha());
-                    lm.setStyle("-fx-text-fill: #888; -fx-font-size: 11px; -fx-padding: 6 10; -fx-background-color: #1e1e1e; -fx-background-radius: 6;");
-                    lm.setWrapText(true);
-                    lm.setMaxWidth(420);
-                    historial.getChildren().add(lm);
-                }
-            }
+            historial.getChildren().add(emptyLabel("⏳ Cargando mensajes..."));
+            new Thread(() -> {
+                List<com.model.Mensaje> msgs = repo.gestorMensajes.obtenerMensajesDeCurso(c.getId());
+                Platform.runLater(() -> {
+                    historial.getChildren().clear();
+                    if (msgs.isEmpty()) {
+                        Label empty = new Label("Sin mensajes aún."); empty.setStyle("-fx-text-fill: #444444; -fx-font-size: 12px;"); historial.getChildren().add(empty);
+                    } else {
+                        String nombreEscrito = nombreField.getText().trim();
+                        for (com.model.Mensaje m : msgs) {
+                            Alumno remitente = com.db.AlumnoDAO.buscarPorId(m.getAlumnoId());
+                            String nombreRemitente = (remitente != null) ? remitente.getNombre() : "Alumno";
+                            String prefijo = nombreRemitente.equalsIgnoreCase(nombreEscrito) ? "Tú" : nombreRemitente;
+                            Label lm = new Label(prefijo + ": " + m.getContenido() + "\n" + m.getFecha());
+                            lm.setStyle("-fx-text-fill: #888; -fx-font-size: 11px; -fx-padding: 6 10; -fx-background-color: #1e1e1e; -fx-background-radius: 6;");
+                            lm.setWrapText(true); lm.setMaxWidth(420);
+                            historial.getChildren().add(lm);
+                        }
+                    }
+                });
+            }).start();
         });
 
-        // se añadio logica del boton enviar - KATERINE
-        // se quito verificacion de inscripcion ya que no hay login real - KATERINE
         btnEnviar.setOnAction(e -> {
             Curso c = comboCurso.getValue();
             if (c == null) { lblStatus.setText("Selecciona un curso."); lblStatus.setStyle("-fx-text-fill: orange; -fx-font-size: 12px;"); return; }
@@ -977,19 +637,21 @@ private VBox buildVerEntregas(RepositorioController repo) {
             if (txt.isEmpty()) { lblStatus.setText("El mensaje no puede estar vacío."); lblStatus.setStyle("-fx-text-fill: orange; -fx-font-size: 12px;"); return; }
             String nombre = nombreField.getText().trim();
             if (nombre.isEmpty()) { lblStatus.setText("Ingresa tu nombre."); lblStatus.setStyle("-fx-text-fill: orange; -fx-font-size: 12px;"); return; }
-            // se agrego estas 2 lineas para obtener o crear el alumno - KATERINE
-            Alumno alumno = com.db.AlumnoDAO.registrarORecuperar(nombre, nombre.toLowerCase().replace(" ", "."));
-            com.model.Mensaje m = repo.gestorMensajes.enviarMensaje(alumno, c.getId(), txt);
-            if (m != null) {
-                // se cambio mensaje a confirmacion positiva - KATERINE
-                lblStatus.setText("✓ Mensaje enviado correctamente.");
-                lblStatus.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;");
-                campoMensaje.clear();
-                comboCurso.fireEvent(new javafx.event.ActionEvent());
-            } else {
-                lblStatus.setText("No se pudo enviar el mensaje, intenta de nuevo.");
-                lblStatus.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;");
-            }
+            btnEnviar.setDisable(true);
+            lblStatus.setText("⏳ Enviando..."); lblStatus.setStyle("-fx-text-fill: #fbbf24; -fx-font-size: 12px;");
+            new Thread(() -> {
+                Alumno alumno = com.db.AlumnoDAO.registrarORecuperar(nombre, nombre.toLowerCase().replace(" ", "."));
+                com.model.Mensaje m = repo.gestorMensajes.enviarMensaje(alumno, c.getId(), txt);
+                Platform.runLater(() -> {
+                    if (m != null) {
+                        lblStatus.setText("✓ Mensaje enviado correctamente."); lblStatus.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;");
+                        campoMensaje.clear(); comboCurso.fireEvent(new javafx.event.ActionEvent());
+                    } else {
+                        lblStatus.setText("No se pudo enviar el mensaje, intenta de nuevo."); lblStatus.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;");
+                    }
+                    btnEnviar.setDisable(false);
+                });
+            }).start();
         });
 
         box.getChildren().addAll(lNombre, nombreField, lblCurso, comboCurso, lblMsg, campoMensaje, btnEnviar, lblStatus, lblHistorial, historial);
@@ -997,134 +659,37 @@ private VBox buildVerEntregas(RepositorioController repo) {
     }
 
     // ── HELPERS ────────────────────────────────────────────────────────────────
-    private void refresh(Stage stage, RepositorioController repo) {
-        stage.setScene(buildScene(stage, repo));
-    }
+    private void refresh(Stage stage, RepositorioController repo) { stage.setScene(buildScene(stage, repo)); }
 
     private void mostrarDialogoCurso(Stage stage, RepositorioController repo) {
-        TextInputDialog d = new TextInputDialog();
-        d.setTitle("Crear Curso");
-        d.setHeaderText("Nombre del nuevo curso");
-        d.showAndWait().ifPresent(nombre -> {
-            if (!nombre.isBlank()) {
-                repo.gestorCurso.crearCurso(nombre, null);
-                vistaActual = "verCursos";
-                refresh(stage, repo);
-            }
-        });
+        TextInputDialog d = new TextInputDialog(); d.setTitle("Crear Curso"); d.setHeaderText("Nombre del nuevo curso");
+        d.showAndWait().ifPresent(nombre -> { if (!nombre.isBlank()) { repo.gestorCurso.crearCurso(nombre, null); vistaActual = "verCursos"; refresh(stage, repo); } });
     }
 
     private void accionUnirse(RepositorioController repo, Stage stage) {
-        TextInputDialog d = new TextInputDialog();
-        d.setTitle("Unirse a clase");
-        d.setHeaderText("Ingresa el código de la clase (Ej: C1)");
-        d.showAndWait().ifPresent(codigo -> {
-            Alumno alumno = new Alumno(0, "Estudiante", "estudiante");
-            repo.gestorCurso.unirseClase(alumno, codigo);
-            refresh(stage, repo);
-        });
+        TextInputDialog d = new TextInputDialog(); d.setTitle("Unirse a clase"); d.setHeaderText("Ingresa el código de la clase (Ej: C1)");
+        d.showAndWait().ifPresent(codigo -> { Alumno alumno = new Alumno(0, "Estudiante", "estudiante"); repo.gestorCurso.unirseClase(alumno, codigo); refresh(stage, repo); });
     }
 
     private VBox accionCard(String emoji, String titulo, String desc, String rol) {
-        Label icon      = new Label(emoji); icon.setStyle("-fx-font-size: 28px;");
+        Label icon = new Label(emoji); icon.setStyle("-fx-font-size: 28px;");
         Label tituloLbl = new Label(titulo); tituloLbl.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 14px; -fx-font-weight: bold;");
-        Label descLbl   = new Label(desc);   descLbl.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px; -fx-text-alignment: center;"); descLbl.setAlignment(Pos.CENTER); descLbl.setWrapText(true);
+        Label descLbl = new Label(desc); descLbl.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px; -fx-text-alignment: center;"); descLbl.setAlignment(Pos.CENTER); descLbl.setWrapText(true);
         String tagStyle = rol.equals("DOCENTE") ? "-fx-background-color: rgba(100,100,220,0.12); -fx-text-fill: #7777cc;" : "-fx-background-color: rgba(80,180,80,0.12); -fx-text-fill: #55aa55;";
-        Label tag = new Label(rol.equals("DOCENTE") ? "Docente" : "Estudiante");
-        tag.setStyle(tagStyle + " -fx-font-size: 10px; -fx-padding: 2 10 2 10; -fx-background-radius: 20;");
-        VBox card = new VBox(10, icon, tituloLbl, descLbl, tag);
-        card.setAlignment(Pos.CENTER);
-        card.setPrefSize(175, 185);
-        card.setPadding(new Insets(22, 16, 22, 16));
+        Label tag = new Label(rol.equals("DOCENTE") ? "Docente" : "Estudiante"); tag.setStyle(tagStyle + " -fx-font-size: 10px; -fx-padding: 2 10 2 10; -fx-background-radius: 20;");
+        VBox card = new VBox(10, icon, tituloLbl, descLbl, tag); card.setAlignment(Pos.CENTER); card.setPrefSize(175, 185); card.setPadding(new Insets(22, 16, 22, 16));
         card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14; -fx-cursor: hand;");
         card.setOnMouseEntered(e -> card.setStyle("-fx-background-color: #252525; -fx-border-color: #444444; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14; -fx-cursor: hand;"));
         card.setOnMouseExited(e  -> card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14; -fx-cursor: hand;"));
         return card;
     }
 
-    // ── DETALLE DEL CURSO ───────────────────────────────────
-    private VBox buildDetalleCurso(RepositorioController repo) {
-        if (cursoSeleccionado == null) return buildInicio(null, repo); // Fallback
-
-        VBox lista = new VBox(15);
-        lista.setPadding(new Insets(20));
-        lista.setStyle("-fx-background-color: #111111;");
-        Label title = new Label(cursoSeleccionado.getNombre().toUpperCase());
-        title.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 18px; -fx-font-weight: bold; -fx-padding: 0 0 10 0;");
-        Label meta = new Label("Código: " + cursoSeleccionado.getCodigo());
-        meta.setStyle("-fx-text-fill: #555555; -fx-font-size: 12px;");
-        lista.getChildren().addAll(new VBox(2, title, meta));
-        Label tasksLbl = secLabel("TAREAS ASIGNADAS");
-        VBox tasksList = new VBox(8);
-        if (cursoSeleccionado.getTareas().isEmpty()) {
-            tasksList.getChildren().add(emptyLabel("No hay tareas asignadas."));
-        } else {
-            for (Tarea t : cursoSeleccionado.getTareas()) {
-                tasksList.getChildren().add(tareaFila(t));
-            }
-        }
-        lista.getChildren().addAll(tasksLbl, tasksList);
-        Label resourcesLbl = secLabel("MATERIAL DE APOYO");
-        VBox resourcesList = new VBox(8);
-        if (cursoSeleccionado.getRecursos().isEmpty()) {
-            resourcesList.getChildren().add(emptyLabel("No se ha subido material de apoyo aún."));
-        } else {
-            for (Recurso r : cursoSeleccionado.getRecursos()) {
-                resourcesList.getChildren().add(recursoFilaClickeable(r));
-            }
-        }
-        lista.getChildren().addAll(resourcesLbl, resourcesList);
-        Button backBtn = new Button("← Volver a Cursos");
-        backBtn.getStyleClass().add("button-ghost");
-        backBtn.setOnAction(e -> { vistaActual = "verCursos"; refresh(null, repo); });
-        lista.getChildren().add(new VBox(20, backBtn));
-
-        return lista;
-    }
-
-    private HBox recursoFilaClickeable(Recurso r) {
-        String emoji = switch (r.getTipo()) {
-            case VIDEO       -> "▶";
-            case PDF         -> "📄";
-            case REPOSITORIO -> "📦";
-            case ARTICULO    -> "🌐";
-        };
-        Label icon = new Label(emoji);
-        icon.setStyle("-fx-font-size: 16px; -fx-text-fill: #a0a0a0;");
-        Label nombre = new Label(r.getTitulo());
-        nombre.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 13px; -fx-font-weight: bold;");
-
-        Region sp = new Region(); HBox.setHgrow(sp, Priority.ALWAYS);
-        Label openIcon = new Label("↗");
-        openIcon.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 14px;"); // Verde sutil
-
-        HBox row = new HBox(12, icon, new VBox(2, nombre), sp, openIcon);
-        row.setAlignment(Pos.CENTER_LEFT);
-        row.setPadding(new Insets(12, 16, 12, 16));
-        String baseStyle = "-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10; -fx-cursor: hand;";
-        String hoverStyle = "-fx-background-color: #252525; -fx-border-color: #4ade80; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10; -fx-cursor: hand;";
-        row.setStyle(baseStyle);
-        row.setOnMouseEntered(e -> row.setStyle(hoverStyle));
-        row.setOnMouseExited(e  -> row.setStyle(baseStyle));
-        row.setOnMouseClicked(e -> {
-            r.abrirEnNavegador();
-        });
-
-        return row;
-    }
-
     private HBox tareaFila(Tarea t) {
         Circle dot = new Circle(5);
-        switch (t.getDificultad()) {
-            case FACIL   -> dot.setFill(Color.web("#4ade80"));
-            case MEDIO   -> dot.setFill(Color.web("#fbbf24"));
-            case DIFICIL -> dot.setFill(Color.web("#f87171"));
-        }
+        switch (t.getDificultad()) { case FACIL -> dot.setFill(Color.web("#4ade80")); case MEDIO -> dot.setFill(Color.web("#fbbf24")); case DIFICIL -> dot.setFill(Color.web("#f87171")); }
         Label nombre = new Label(t.getTitulo()); nombre.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 13px; -fx-font-weight: bold;");
         Region sp = new Region(); HBox.setHgrow(sp, Priority.ALWAYS);
-        HBox row = new HBox(10, dot, nombre, sp, difBadge(t.getDificultad()));
-        row.setAlignment(Pos.CENTER_LEFT);
-        row.setPadding(new Insets(11, 14, 11, 14));
+        HBox row = new HBox(10, dot, nombre, sp, difBadge(t.getDificultad())); row.setAlignment(Pos.CENTER_LEFT); row.setPadding(new Insets(11, 14, 11, 14));
         row.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10;");
         return row;
     }
@@ -1148,17 +713,12 @@ private VBox buildVerEntregas(RepositorioController repo) {
     private VBox statCard(String label, String value, String color) {
         Label lbl = new Label(label); lbl.setStyle("-fx-text-fill: #555555; -fx-font-size: 10px;");
         Label val = new Label(value); val.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 22px; -fx-font-weight: bold;");
-        VBox c = new VBox(3, lbl, val);
-        c.setPadding(new Insets(12, 14, 12, 14));
-        c.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10;");
-        HBox.setHgrow(c, Priority.ALWAYS);
-        return c;
+        VBox c = new VBox(3, lbl, val); c.setPadding(new Insets(12, 14, 12, 14)); c.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 10; -fx-background-radius: 10;");
+        HBox.setHgrow(c, Priority.ALWAYS); return c;
     }
 
     private Button navBtn(String text, boolean active) {
-        Button b = new Button(text);
-        b.setMaxWidth(Double.MAX_VALUE);
-        b.setAlignment(Pos.CENTER_LEFT);
+        Button b = new Button(text); b.setMaxWidth(Double.MAX_VALUE); b.setAlignment(Pos.CENTER_LEFT);
         b.setStyle(active
                 ? "-fx-background-color: #222222; -fx-text-fill: #dddddd; -fx-font-weight: bold; -fx-font-size: 12px; -fx-padding: 9 16; -fx-cursor: hand; -fx-border-color: transparent transparent transparent #666666; -fx-border-width: 2px; -fx-background-radius: 0; -fx-border-radius: 0;"
                 : "-fx-background-color: transparent; -fx-text-fill: #555555; -fx-font-size: 12px; -fx-padding: 9 16; -fx-cursor: hand; -fx-border-color: transparent; -fx-background-radius: 0; -fx-border-radius: 0;");
@@ -1166,9 +726,7 @@ private VBox buildVerEntregas(RepositorioController repo) {
     }
 
     private Button topBtn(String text) {
-        Button b = new Button(text);
-        b.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #a0a0a0; -fx-font-size: 12px; -fx-padding: 6 14; -fx-border-color: #333333; -fx-border-width: 1px; -fx-border-radius: 8; -fx-background-radius: 8; -fx-cursor: hand;");
-        return b;
+        Button b = new Button(text); b.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #a0a0a0; -fx-font-size: 12px; -fx-padding: 6 14; -fx-border-color: #333333; -fx-border-width: 1px; -fx-border-radius: 8; -fx-background-radius: 8; -fx-cursor: hand;"); return b;
     }
 
     private Label sectionLabel(String t) { Label l = new Label(t); l.setStyle("-fx-text-fill: #3a3a3a; -fx-font-size: 10px; -fx-font-weight: bold; -fx-padding: 10 16 4 16;"); return l; }

@@ -4,36 +4,38 @@ import com.db.EntregaDAO;
 import com.model.*;
 
 import java.io.File;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class GestorEntregas {
 
-    public Entrega subirEntrega(Alumno alumno, Tarea tarea, File archivo) {
+    // Caché por tarea — clave es el id de la tarea
+    private Map<Integer, List<Entrega>> cache = new HashMap<>();
 
-   
-    Entrega e = new Entrega(alumno, tarea, archivo);
-
-   
-    EntregaDAO.registrar(alumno.getId(), tarea.getId(), archivo.getAbsolutePath());
-
-  
-    return e;
-}
-
-    public List<Entrega> obtenerPorTarea(Tarea tarea) {
-        return EntregaDAO.obtenerPorTarea(tarea.getId());
+    // ── SUBIR ENTREGA — invalida caché de esa tarea ───
+    public void subirEntrega(Alumno alumno, Tarea tarea, File archivo) {
+        EntregaDAO.registrar(alumno.getId(), tarea.getId(), archivo.getAbsolutePath());
+        cache.remove(tarea.getId()); // Invalida solo la tarea afectada
     }
 
+    // ── OBTENER POR TAREA — usa caché ─────────────────
+    public List<Entrega> obtenerPorTarea(Tarea tarea) {
+        if (!cache.containsKey(tarea.getId())) {
+            // No está en caché — consulta BD y guarda
+            cache.put(tarea.getId(), EntregaDAO.obtenerPorTarea(tarea.getId()));
+        }
+        return cache.get(tarea.getId()); // Retorna instantáneo
+    }
+
+    // ── OBTENER TODAS ─────────────────────────────────
     public List<Entrega> obtenerEntregas() {
         return EntregaDAO.obtenerTodas();
     }
-    public void calificarEntrega(Entrega en, int nota, String comentario) {
-    en.setNota(nota);
-    en.setComentario(comentario);
 
-    EntregaDAO.actualizarNota(en.getId(), nota, comentario);
-}
-
-
+    // ── INVALIDAR MANUALMENTE ─────────────────────────
+    public void invalidarCache() {
+        cache.clear();
+    }
 }
 
