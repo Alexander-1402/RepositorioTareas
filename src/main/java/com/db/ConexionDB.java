@@ -7,14 +7,14 @@ import java.sql.Statement;
 
 public class ConexionDB {
 
-    private static final String HOST     = "metro.proxy.rlwy.net";
-    private static final String PORT     = "24515";
-    private static final String DATABASE = "taskrepo";
-    private static final String USER     = "root";
-    private static final String PASSWORD = "ymicOrKQGDZagdxhJEHXCWSeeuCuyuSN";
+    private static final String HOST     = "mysql-3dcbe31c-alehigra-de8f.a.aivencloud.com";
+    private static final String PORT     = "11979";
+    private static final String DATABASE = "defaultdb";
+    private static final String USER     = "avnadmin";
+    private static final String PASSWORD = "AVNS_Gt85S1euBcw_Ark6v-e";
 
     private static final String URL = "jdbc:mysql://" + HOST + ":" + PORT + "/" + DATABASE
-            + "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
+            + "?useSSL=true&allowPublicKeyRetrieval=true&serverTimezone=UTC";
 
     // Carga el driver al arrancar
     static {
