@@ -7,11 +7,11 @@ import java.sql.Statement;
 
 public class ConexionDB {
 
-    private static final String HOST     = "mysql-3dcbe31c-alehigra-de8f.a.aivencloud.com";
-    private static final String PORT     = "11979";
-    private static final String DATABASE = "defaultdb";
-    private static final String USER     = "avnadmin";
-    private static final String PASSWORD = "AVNS_Gt85S1euBcw_Ark6v-e";
+    private static final String HOST     = System.getenv("DB_HOST");
+    private static final String PORT     = System.getenv("DB_PORT");
+    private static final String DATABASE = System.getenv("DB_NAME");
+    private static final String USER     = System.getenv("DB_USER");
+    private static final String PASSWORD = System.getenv("DB_PASSWORD");
 
     private static final String URL = "jdbc:mysql://" + HOST + ":" + PORT + "/" + DATABASE
             + "?useSSL=true&allowPublicKeyRetrieval=true&serverTimezone=UTC";
