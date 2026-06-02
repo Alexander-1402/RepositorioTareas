@@ -11,6 +11,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.stage.Stage;
 
+import com.ValidadorArchivo;
 import com.controller.GestorIA;
 import com.controller.RepositorioController;
 import com.model.*;
@@ -130,7 +131,6 @@ public class MainUI {
                 Button btnMisTareas = navBtn("✦  Mis Tareas",          vistaActual.equals("misTareas"));
                 Button btnEntregar  = navBtn("↑  Entregar Tarea",      vistaActual.equals("entregar"));
                 Button btnUnirse    = navBtn("＋  Unirse a Clase",     false);
-                // HU-03 - KATERINE: boton contactar docente
                 Button btnMensajes  = navBtn("✉  Contactar Docente",   vistaActual.equals("mensajes"));
                 btnMisTareas.setOnAction(e -> { vistaActual = "misTareas"; refresh(stage, repo); });
                 btnEntregar.setOnAction(e  -> { vistaActual = "entregar";  refresh(stage, repo); });
@@ -376,25 +376,64 @@ public class MainUI {
         Label subirTitle = new Label("Subir tarea"); subirTitle.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 14px; -fx-font-weight: bold;");
         TextField nombreAlumnoField = new TextField(); nombreAlumnoField.setPromptText("Tu nombre completo");
         ComboBox<Tarea> tareasBox = new ComboBox<>(); tareasBox.getItems().addAll(cursoActual.getTareas()); tareasBox.setPromptText("Selecciona una tarea"); tareasBox.setMaxWidth(Double.MAX_VALUE);
-        Button selArchivoBtn = new Button("Seleccionar PDF"); selArchivoBtn.setMaxWidth(Double.MAX_VALUE); selArchivoBtn.setStyle("-fx-background-color: #2f2f2f; -fx-text-fill: #d0d0d0; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #3b3b3b; -fx-cursor: hand;");
+        Button selArchivoBtn = new Button("Seleccionar archivo"); selArchivoBtn.setMaxWidth(Double.MAX_VALUE); selArchivoBtn.setStyle("-fx-background-color: #2f2f2f; -fx-text-fill: #d0d0d0; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #3b3b3b; -fx-cursor: hand;");
         Label archivoLbl = new Label("Ningún archivo seleccionado"); archivoLbl.setStyle("-fx-text-fill: #777777; -fx-font-size: 11px;");
         final java.io.File[] archivoSel = new java.io.File[1];
-        selArchivoBtn.setOnAction(e -> { javafx.stage.FileChooser fc = new javafx.stage.FileChooser(); fc.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("PDF Files", "*.pdf")); java.io.File f = fc.showOpenDialog(stage); if (f != null) { archivoSel[0] = f; archivoLbl.setText("✓ " + f.getName()); archivoLbl.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;"); } });
+
+        // HU1 — KATERINE: selección de archivo con cualquier formato (validación real con ValidadorArchivo)
+        selArchivoBtn.setOnAction(e -> {
+            javafx.stage.FileChooser fc = new javafx.stage.FileChooser();
+            fc.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter(
+                    "Archivos permitidos (PDF, DOCX, ZIP, PNG, TXT, JPG, XLSX)",
+                    "*.pdf", "*.docx", "*.zip", "*.png", "*.txt", "*.jpg", "*.xlsx"
+            ));
+            java.io.File f = fc.showOpenDialog(stage);
+            if (f != null) {
+                archivoSel[0] = f;
+                archivoLbl.setText("✓ " + f.getName());
+                archivoLbl.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;");
+            }
+        });
+
         Label subirMsg = new Label(); subirMsg.setWrapText(true);
         Button subirBtn = new Button("Entregar tarea"); subirBtn.setMaxWidth(Double.MAX_VALUE); subirBtn.setStyle("-fx-background-color: #2563eb; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 8; -fx-cursor: hand;");
+
         subirBtn.setOnAction(e -> {
-            String nA = nombreAlumnoField.getText().trim(); Tarea tS = tareasBox.getValue();
+            String nA = nombreAlumnoField.getText().trim();
+            Tarea tS = tareasBox.getValue();
             if (nA.isBlank()) { subirMsg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 11px;"); subirMsg.setText("❌ Ingresa tu nombre."); return; }
             if (tS == null)   { subirMsg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 11px;"); subirMsg.setText("❌ Selecciona una tarea."); return; }
-            if (archivoSel[0] == null) { subirMsg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 11px;"); subirMsg.setText("❌ Selecciona un PDF."); return; }
-            Alert conf = new Alert(Alert.AlertType.CONFIRMATION); conf.setTitle("Confirmar entrega"); conf.setHeaderText("¿Estás seguro?"); conf.setContentText("Tarea: " + tS.getTitulo() + "\nAlumno: " + nA);
-            conf.showAndWait().ifPresent(r -> { if (r == ButtonType.OK) {
-                Alumno alumno = new Alumno(System.identityHashCode(nA), nA, nA.toLowerCase().replace(" ", "."));
-                repo.gestorEntregas.subirEntrega(alumno, tS, archivoSel[0]);
-                tareasEntregadas.add(tS); subirMsg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;"); subirMsg.setText("✅ Tarea entregada correctamente.");
-                actualizarListaTareas.run(); nombreAlumnoField.clear(); tareasBox.getSelectionModel().clearSelection(); archivoSel[0] = null; archivoLbl.setText("Ningún archivo seleccionado"); archivoLbl.setStyle("-fx-text-fill: #777777; -fx-font-size: 11px;");
-            }});
+            if (archivoSel[0] == null) { subirMsg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 11px;"); subirMsg.setText("❌ Selecciona un archivo."); return; }
+
+            // HU1 — KATERINE: validación real del formato con ValidadorArchivo
+            ValidadorArchivo validador = new ValidadorArchivo();
+            if (!validador.subirArchivo(archivoSel[0].getName())) {
+                subirMsg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;");
+                subirMsg.setText("⚠ Formato de archivo no permitido. Use: PDF, DOCX, ZIP, PNG, TXT, JPG o XLSX");
+                return;
+            }
+
+            Alert conf = new Alert(Alert.AlertType.CONFIRMATION);
+            conf.setTitle("Confirmar entrega");
+            conf.setHeaderText("¿Estás seguro?");
+            conf.setContentText("Tarea: " + tS.getTitulo() + "\nAlumno: " + nA);
+            conf.showAndWait().ifPresent(r -> {
+                if (r == ButtonType.OK) {
+                    Alumno alumno = new Alumno(System.identityHashCode(nA), nA, nA.toLowerCase().replace(" ", "."));
+                    repo.gestorEntregas.subirEntrega(alumno, tS, archivoSel[0]);
+                    tareasEntregadas.add(tS);
+                    subirMsg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;");
+                    subirMsg.setText("✅ Tarea entregada correctamente.");
+                    actualizarListaTareas.run();
+                    nombreAlumnoField.clear();
+                    tareasBox.getSelectionModel().clearSelection();
+                    archivoSel[0] = null;
+                    archivoLbl.setText("Ningún archivo seleccionado");
+                    archivoLbl.setStyle("-fx-text-fill: #777777; -fx-font-size: 11px;");
+                }
+            });
         });
+
         cardSubir.getChildren().addAll(subirTitle, nombreAlumnoField, tareasBox, selArchivoBtn, archivoLbl, subirBtn, subirMsg);
         derecha.getChildren().addAll(cardAlumnos, cardSubir);
 
@@ -508,7 +547,7 @@ public class MainUI {
         VBox wrap = new VBox(card); wrap.setPadding(new Insets(20)); wrap.setStyle("-fx-background-color: #111111;"); return wrap;
     }
 
-    // ── MIS TAREAS — HU-05 ─────────────────────────────────────────────────────
+    // ── MIS TAREAS ─────────────────────────────────────────────────────────────
     private VBox buildMisTareas(RepositorioController repo) {
         java.util.List<Tarea> tareas = new java.util.ArrayList<>();
         for (Curso c : repo.gestorCurso.listarCursos()) tareas.addAll(c.getTareas());
@@ -540,7 +579,7 @@ public class MainUI {
         VBox content = new VBox(stats, recBox, lista); content.setStyle("-fx-background-color: #111111;"); return content;
     }
 
-    // ── ENTREGAR TAREA ─────────────────────────────────────────────────────────
+    // ── ENTREGAR TAREA — HU1 KATERINE ─────────────────────────────────────────
     private VBox buildEntregar(Stage stage, RepositorioController repo) {
         Label lNombre = fieldLbl("Tu nombre"); TextField nombreField = new TextField(); nombreField.setPromptText("Ej: Ana López"); nombreField.setMaxWidth(Double.MAX_VALUE);
         Label lC = fieldLbl("Código del curso"); TextField codigoField = new TextField(); codigoField.setPromptText("Ej: C1"); codigoField.setMaxWidth(Double.MAX_VALUE);
@@ -563,25 +602,69 @@ public class MainUI {
                 });
             }).start();
         });
-        Label lA = fieldLbl("Archivo PDF"); Button selBtn = new Button("Seleccionar PDF..."); selBtn.setMaxWidth(Double.MAX_VALUE); selBtn.getStyleClass().add("button-ghost");
+
+        Label lA = fieldLbl("Archivo (PDF, DOCX, ZIP, PNG, TXT, JPG, XLSX)");
+        Button selBtn = new Button("Seleccionar archivo..."); selBtn.setMaxWidth(Double.MAX_VALUE); selBtn.getStyleClass().add("button-ghost");
         Label archivoLabel = new Label("Ningún archivo seleccionado"); archivoLabel.setStyle("-fx-text-fill: #555555; -fx-font-size: 11px;");
         final java.io.File[] archivoSel = new java.io.File[1];
-        selBtn.setOnAction(e -> { javafx.stage.FileChooser fc = new javafx.stage.FileChooser(); fc.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("PDF Files", "*.pdf")); java.io.File f = fc.showOpenDialog(stage); if (f != null) { archivoSel[0] = f; archivoLabel.setText("✓ " + f.getName()); archivoLabel.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;"); } });
-        Label msg = new Label(); Button subirBtn = new Button("Entregar Tarea →"); subirBtn.setMaxWidth(Double.MAX_VALUE); subirBtn.setPrefHeight(42);
-        subirBtn.setOnAction(e -> { String nombre = nombreField.getText().trim(); Tarea tarea = tareasBox.getValue(); if (nombre.isBlank() || tarea == null || archivoSel[0] == null) { msg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;"); msg.setText("⚠ Completa todos los campos"); return; }
-            subirBtn.setDisable(true); msg.setStyle("-fx-text-fill: #fbbf24; -fx-font-size: 12px;"); msg.setText("⏳ Subiendo entrega...");
+
+        // HU1 — KATERINE: FileChooser acepta todos los formatos permitidos
+        selBtn.setOnAction(e -> {
+            javafx.stage.FileChooser fc = new javafx.stage.FileChooser();
+            fc.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter(
+                    "Archivos permitidos", "*.pdf", "*.docx", "*.zip", "*.png", "*.txt", "*.jpg", "*.xlsx"
+            ));
+            java.io.File f = fc.showOpenDialog(stage);
+            if (f != null) {
+                archivoSel[0] = f;
+                archivoLabel.setText("✓ " + f.getName());
+                archivoLabel.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 11px;");
+            }
+        });
+
+        Label msg = new Label();
+        Button subirBtn = new Button("Entregar Tarea →"); subirBtn.setMaxWidth(Double.MAX_VALUE); subirBtn.setPrefHeight(42);
+
+        subirBtn.setOnAction(e -> {
+            String nombre = nombreField.getText().trim();
+            Tarea tarea = tareasBox.getValue();
+            if (nombre.isBlank() || tarea == null || archivoSel[0] == null) {
+                msg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;");
+                msg.setText("⚠ Completa todos los campos");
+                return;
+            }
+
+            // HU1 — KATERINE: validación real del formato con ValidadorArchivo
+            ValidadorArchivo validador = new ValidadorArchivo();
+            if (!validador.subirArchivo(archivoSel[0].getName())) {
+                msg.setStyle("-fx-text-fill: #f87171; -fx-font-size: 12px;");
+                msg.setText("⚠ Formato no permitido. Use: PDF, DOCX, ZIP, PNG, TXT, JPG o XLSX");
+                return;
+            }
+
+            subirBtn.setDisable(true);
+            msg.setStyle("-fx-text-fill: #fbbf24; -fx-font-size: 12px;");
+            msg.setText("⏳ Subiendo entrega...");
             Alumno alumno = new Alumno(System.identityHashCode(nombre), nombre, nombre.toLowerCase().replace(" ", "."));
             java.io.File archivoFinal = archivoSel[0];
             new Thread(() -> {
                 repo.gestorEntregas.subirEntrega(alumno, tarea, archivoFinal);
-                Platform.runLater(() -> { msg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;"); msg.setText("✓ Tarea entregada correctamente"); subirBtn.setDisable(false); });
+                Platform.runLater(() -> {
+                    msg.setStyle("-fx-text-fill: #4ade80; -fx-font-size: 12px;");
+                    msg.setText("✓ Tarea entregada correctamente");
+                    subirBtn.setDisable(false);
+                });
             }).start();
         });
-        VBox card = new VBox(12, lNombre, nombreField, lC, codigoField, buscarBtn, msgBuscar, lT, tareasBox, lA, selBtn, archivoLabel, msg, subirBtn); card.setPadding(new Insets(20)); card.setMaxWidth(420); card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
-        VBox wrap = new VBox(card); wrap.setPadding(new Insets(20)); wrap.setStyle("-fx-background-color: #111111;"); return wrap;
+
+        VBox card = new VBox(12, lNombre, nombreField, lC, codigoField, buscarBtn, msgBuscar, lT, tareasBox, lA, selBtn, archivoLabel, msg, subirBtn);
+        card.setPadding(new Insets(20)); card.setMaxWidth(420);
+        card.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #2a2a2a; -fx-border-width: 1px; -fx-border-radius: 14; -fx-background-radius: 14;");
+        VBox wrap = new VBox(card); wrap.setPadding(new Insets(20)); wrap.setStyle("-fx-background-color: #111111;");
+        return wrap;
     }
 
-    // ── CONTACTAR DOCENTE — HU-03 KATERINE ────────────────────────────────────
+    // ── CONTACTAR DOCENTE ──────────────────────────────────────────────────────
     private VBox buildVistaMensajes(Stage stage, RepositorioController repo) {
         VBox box = new VBox(16);
         box.setPadding(new Insets(24));
@@ -600,7 +683,6 @@ public class MainUI {
         btnEnviar.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e0e0e0; -fx-border-color: #3a3a3a; -fx-border-radius: 6; -fx-background-radius: 6; -fx-cursor: hand;");
 
         Label lblStatus = new Label(""); lblStatus.setStyle("-fx-font-size: 12px;");
-
         Label lblHistorial = new Label("Mensajes en este curso:"); lblHistorial.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 12px;");
         VBox historial = new VBox(8);
 
